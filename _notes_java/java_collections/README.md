@@ -29,6 +29,715 @@ A set is not ordered and cannot contain duplicates. Any given object either is o
 
 ![collection-hierarchy](https://user-images.githubusercontent.com/2780145/34073817-62945de4-e2c8-11e7-820b-84f9dad32af3.png)
 
+### Collection Examples with Detailed Explanations
+
+---
+
+## LIST Implementations
+
+Lists are ordered collections that allow duplicate elements. You can access elements by their index.
+
+### 1. ArrayList
+**Best for:** Random access, reading data frequently. Backed by dynamic array.
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public class ArrayListExample {
+    public static void main(String[] args) {
+        // Creating ArrayList
+        List<String> fruits = new ArrayList<>();
+        
+        // Adding elements - O(1) amortized
+        fruits.add("Apple");
+        fruits.add("Banana");
+        fruits.add("Orange");
+        fruits.add("Apple");  // Duplicates allowed!
+        
+        // Access by index - O(1) FAST!
+        String first = fruits.get(0);  // "Apple"
+        
+        // Insert at specific index - O(n) slow, shifts elements
+        fruits.add(1, "Mango");  // [Apple, Mango, Banana, Orange, Apple]
+        
+        // Update element - O(1)
+        fruits.set(2, "Grapes");  // Replace Banana with Grapes
+        
+        // Remove by index - O(n) slow, shifts elements
+        fruits.remove(0);  // Removes Apple
+        
+        // Remove by object - O(n)
+        fruits.remove("Orange");
+        
+        // Check if contains - O(n)
+        boolean hasApple = fruits.contains("Apple");
+        
+        // Size
+        int size = fruits.size();
+        
+        // Iterate - Multiple ways
+        for (String fruit : fruits) {
+            System.out.println(fruit);
+        }
+        
+        // Using forEach (Java 8+)
+        fruits.forEach(System.out::println);
+        
+        // Using iterator
+        Iterator<String> it = fruits.iterator();
+        while (it.hasNext()) {
+            System.out.println(it.next());
+        }
+        
+        // Convert to array
+        String[] arr = fruits.toArray(new String[0]);
+        
+        // Clear all elements
+        fruits.clear();
+    }
+}
+```
+
+**When to use:** When you need fast random access (get by index) and mostly add elements at the end.
+
+---
+
+### 2. LinkedList
+**Best for:** Frequent insertions/deletions at beginning or middle. Implements both List and Deque.
+
+```java
+import java.util.LinkedList;
+import java.util.List;
+
+public class LinkedListExample {
+    public static void main(String[] args) {
+        // LinkedList as List
+        LinkedList<String> names = new LinkedList<>();
+        
+        // Add elements
+        names.add("Alice");
+        names.add("Bob");
+        names.add("Charlie");
+        
+        // Add at beginning - O(1) FAST!
+        names.addFirst("Zara");
+        
+        // Add at end - O(1) FAST!
+        names.addLast("David");
+        
+        // Access first/last - O(1)
+        String first = names.getFirst();  // "Zara"
+        String last = names.getLast();    // "David"
+        
+        // Access by index - O(n) SLOW! Must traverse
+        String middle = names.get(2);
+        
+        // Remove first/last - O(1) FAST!
+        names.removeFirst();
+        names.removeLast();
+        
+        // LinkedList as Queue (FIFO)
+        names.offer("Eve");     // Add to end
+        String head = names.poll();  // Remove from front
+        
+        // LinkedList as Stack (LIFO)
+        names.push("Frank");    // Add to front
+        String top = names.pop();    // Remove from front
+        
+        // Peek without removing
+        String peekFirst = names.peekFirst();
+        String peekLast = names.peekLast();
+        
+        // Iterate in reverse
+        Iterator<String> descIt = names.descendingIterator();
+        while (descIt.hasNext()) {
+            System.out.println(descIt.next());
+        }
+    }
+}
+```
+
+**When to use:** When you frequently add/remove elements from beginning or need Queue/Deque functionality.
+
+---
+
+### 3. Vector (Legacy - Thread-Safe)
+**Best for:** Thread-safe list operations. Similar to ArrayList but synchronized.
+
+```java
+import java.util.Vector;
+import java.util.Enumeration;
+
+public class VectorExample {
+    public static void main(String[] args) {
+        // Vector is synchronized (thread-safe)
+        Vector<Integer> numbers = new Vector<>();
+        
+        // Add elements - same as ArrayList
+        numbers.add(10);
+        numbers.add(20);
+        numbers.add(30);
+        
+        // Vector-specific: addElement (legacy method)
+        numbers.addElement(40);
+        
+        // Capacity management
+        numbers.ensureCapacity(100);  // Pre-allocate space
+        int capacity = numbers.capacity();
+        
+        // Access elements
+        Integer first = numbers.firstElement();
+        Integer last = numbers.lastElement();
+        Integer atIndex = numbers.elementAt(1);
+        
+        // Legacy iteration using Enumeration
+        Enumeration<Integer> e = numbers.elements();
+        while (e.hasMoreElements()) {
+            System.out.println(e.nextElement());
+        }
+        
+        // Modern iteration works too
+        for (Integer num : numbers) {
+            System.out.println(num);
+        }
+    }
+}
+```
+
+**When to use:** In legacy code or when you need a thread-safe list (prefer `Collections.synchronizedList()` or `CopyOnWriteArrayList` for new code).
+
+---
+
+### 4. Stack (Legacy - LIFO)
+**Best for:** Last-In-First-Out operations. Extends Vector.
+
+```java
+import java.util.Stack;
+
+public class StackExample {
+    public static void main(String[] args) {
+        Stack<String> stack = new Stack<>();
+        
+        // Push elements onto stack - O(1)
+        stack.push("First");
+        stack.push("Second");
+        stack.push("Third");
+        // Stack: [First, Second, Third] <- top
+        
+        // Peek at top without removing - O(1)
+        String top = stack.peek();  // "Third"
+        
+        // Pop (remove) from top - O(1)
+        String removed = stack.pop();  // "Third"
+        // Stack: [First, Second] <- top
+        
+        // Check if empty
+        boolean isEmpty = stack.empty();
+        
+        // Search for element (returns 1-based position from top)
+        int position = stack.search("First");  // 2 (Second is 1, First is 2)
+        // Returns -1 if not found
+        
+        // Pop all elements
+        while (!stack.empty()) {
+            System.out.println(stack.pop());
+        }
+    }
+}
+```
+
+**Note:** For new code, prefer `ArrayDeque` as a stack - it's faster and not synchronized.
+
+```java
+// Modern alternative
+Deque<String> modernStack = new ArrayDeque<>();
+modernStack.push("First");
+modernStack.push("Second");
+String top = modernStack.pop();
+```
+
+---
+
+## SET Implementations
+
+Sets are collections that do NOT allow duplicate elements.
+
+### 5. HashSet
+**Best for:** Fast operations when order doesn't matter. Uses HashMap internally.
+
+```java
+import java.util.HashSet;
+import java.util.Set;
+
+public class HashSetExample {
+    public static void main(String[] args) {
+        Set<String> countries = new HashSet<>();
+        
+        // Add elements - O(1) average
+        countries.add("India");
+        countries.add("USA");
+        countries.add("Japan");
+        countries.add("India");  // Duplicate - NOT added! Returns false
+        
+        System.out.println(countries);  // Order NOT guaranteed!
+        // Could print: [USA, Japan, India] or any order
+        
+        // Check if contains - O(1) average
+        boolean hasIndia = countries.contains("India");  // true
+        
+        // Remove - O(1) average
+        countries.remove("USA");
+        
+        // Size
+        int size = countries.size();
+        
+        // Iterate (order not predictable)
+        for (String country : countries) {
+            System.out.println(country);
+        }
+        
+        // Set operations
+        Set<String> asianCountries = new HashSet<>();
+        asianCountries.add("India");
+        asianCountries.add("Japan");
+        asianCountries.add("China");
+        
+        // Union
+        Set<String> union = new HashSet<>(countries);
+        union.addAll(asianCountries);
+        
+        // Intersection
+        Set<String> intersection = new HashSet<>(countries);
+        intersection.retainAll(asianCountries);
+        
+        // Difference
+        Set<String> difference = new HashSet<>(countries);
+        difference.removeAll(asianCountries);
+    }
+}
+```
+
+**When to use:** When you need fast uniqueness checks and don't care about order.
+
+---
+
+### 6. LinkedHashSet
+**Best for:** Maintaining insertion order with uniqueness.
+
+```java
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+public class LinkedHashSetExample {
+    public static void main(String[] args) {
+        // Maintains insertion order!
+        Set<String> colors = new LinkedHashSet<>();
+        
+        colors.add("Red");
+        colors.add("Green");
+        colors.add("Blue");
+        colors.add("Red");  // Duplicate - not added
+        
+        System.out.println(colors);  // Always: [Red, Green, Blue]
+        
+        // All operations same as HashSet, but order is preserved
+        for (String color : colors) {
+            System.out.println(color);  // Red, Green, Blue (in order)
+        }
+        
+        // Slightly slower than HashSet due to maintaining linked list
+        // but faster than TreeSet
+    }
+}
+```
+
+**When to use:** When you need unique elements AND want to maintain insertion order.
+
+---
+
+### 7. TreeSet
+**Best for:** Sorted unique elements. Implements NavigableSet.
+
+```java
+import java.util.TreeSet;
+import java.util.NavigableSet;
+
+public class TreeSetExample {
+    public static void main(String[] args) {
+        // Elements are automatically sorted!
+        TreeSet<Integer> numbers = new TreeSet<>();
+        
+        numbers.add(50);
+        numbers.add(20);
+        numbers.add(80);
+        numbers.add(10);
+        numbers.add(60);
+        
+        System.out.println(numbers);  // [10, 20, 50, 60, 80] - Sorted!
+        
+        // Navigation methods - O(log n)
+        Integer first = numbers.first();    // 10
+        Integer last = numbers.last();      // 80
+        
+        // Lower/Higher (exclusive)
+        Integer lower = numbers.lower(50);   // 20 (largest < 50)
+        Integer higher = numbers.higher(50); // 60 (smallest > 50)
+        
+        // Floor/Ceiling (inclusive)
+        Integer floor = numbers.floor(50);     // 50 (largest <= 50)
+        Integer ceiling = numbers.ceiling(45); // 50 (smallest >= 45)
+        
+        // Poll (remove) first/last
+        Integer pollFirst = numbers.pollFirst();  // Removes and returns 10
+        Integer pollLast = numbers.pollLast();    // Removes and returns 80
+        
+        // Range views (subsets)
+        NavigableSet<Integer> subset = numbers.subSet(20, true, 60, true);
+        // [20, 50, 60]
+        
+        NavigableSet<Integer> headSet = numbers.headSet(50, false);  // < 50
+        NavigableSet<Integer> tailSet = numbers.tailSet(50, true);   // >= 50
+        
+        // Descending order
+        NavigableSet<Integer> descending = numbers.descendingSet();
+        
+        // Custom sorting with Comparator
+        TreeSet<String> names = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        names.add("zebra");
+        names.add("Apple");
+        names.add("banana");
+        System.out.println(names);  // [Apple, banana, zebra]
+    }
+}
+```
+
+**When to use:** When you need unique elements in sorted order or need range queries.
+
+---
+
+## QUEUE Implementations
+
+Queues typically follow FIFO (First-In-First-Out) ordering.
+
+### 8. PriorityQueue
+**Best for:** Processing elements by priority (natural order or custom comparator).
+
+```java
+import java.util.PriorityQueue;
+import java.util.Comparator;
+
+public class PriorityQueueExample {
+    public static void main(String[] args) {
+        // Min-heap by default (smallest first)
+        PriorityQueue<Integer> minHeap = new PriorityQueue<>();
+        
+        minHeap.add(50);
+        minHeap.add(20);
+        minHeap.add(80);
+        minHeap.add(10);
+        
+        // Peek at smallest - O(1)
+        Integer smallest = minHeap.peek();  // 10
+        
+        // Poll removes smallest - O(log n)
+        while (!minHeap.isEmpty()) {
+            System.out.println(minHeap.poll());  // 10, 20, 50, 80
+        }
+        
+        // Max-heap (largest first)
+        PriorityQueue<Integer> maxHeap = new PriorityQueue<>(Comparator.reverseOrder());
+        maxHeap.add(50);
+        maxHeap.add(20);
+        maxHeap.add(80);
+        
+        System.out.println(maxHeap.poll());  // 80
+        System.out.println(maxHeap.poll());  // 50
+        
+        // Custom priority with objects
+        PriorityQueue<Task> taskQueue = new PriorityQueue<>(
+            Comparator.comparing(Task::getPriority)
+        );
+        taskQueue.add(new Task("Low priority task", 3));
+        taskQueue.add(new Task("High priority task", 1));
+        taskQueue.add(new Task("Medium priority task", 2));
+        
+        // Processes in priority order: 1, 2, 3
+        while (!taskQueue.isEmpty()) {
+            System.out.println(taskQueue.poll().getName());
+        }
+    }
+}
+
+class Task {
+    private String name;
+    private int priority;
+    
+    public Task(String name, int priority) {
+        this.name = name;
+        this.priority = priority;
+    }
+    
+    public String getName() { return name; }
+    public int getPriority() { return priority; }
+}
+```
+
+**When to use:** Task scheduling, finding min/max elements, Dijkstra's algorithm.
+
+---
+
+### 9. ArrayDeque
+**Best for:** Fast double-ended queue. Better than Stack and LinkedList for most cases.
+
+```java
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class ArrayDequeExample {
+    public static void main(String[] args) {
+        Deque<String> deque = new ArrayDeque<>();
+        
+        // Add to front and back - O(1)
+        deque.addFirst("A");    // [A]
+        deque.addLast("B");     // [A, B]
+        deque.addFirst("Z");    // [Z, A, B]
+        deque.addLast("C");     // [Z, A, B, C]
+        
+        // Peek front and back - O(1)
+        String first = deque.peekFirst();  // "Z"
+        String last = deque.peekLast();    // "C"
+        
+        // Remove from front and back - O(1)
+        String removedFirst = deque.pollFirst();  // "Z"
+        String removedLast = deque.pollLast();    // "C"
+        // Deque now: [A, B]
+        
+        // Use as STACK (LIFO)
+        Deque<Integer> stack = new ArrayDeque<>();
+        stack.push(1);   // addFirst
+        stack.push(2);
+        stack.push(3);
+        System.out.println(stack.pop());  // 3 (removeFirst)
+        
+        // Use as QUEUE (FIFO)
+        Deque<Integer> queue = new ArrayDeque<>();
+        queue.offer(1);  // addLast
+        queue.offer(2);
+        queue.offer(3);
+        System.out.println(queue.poll());  // 1 (removeFirst)
+        
+        // offer vs add: offer returns false on failure, add throws exception
+        // poll vs remove: poll returns null on empty, remove throws exception
+        // peek vs element: peek returns null on empty, element throws exception
+    }
+}
+```
+
+**When to use:** As a faster replacement for Stack or LinkedList when used as queue/deque.
+
+---
+
+## MAP Implementations
+
+Maps store key-value pairs. Keys must be unique.
+
+### 10. HashMap
+**Best for:** Fast key-value storage when order doesn't matter.
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+public class HashMapExample {
+    public static void main(String[] args) {
+        Map<String, Integer> ages = new HashMap<>();
+        
+        // Put key-value pairs - O(1) average
+        ages.put("Alice", 25);
+        ages.put("Bob", 30);
+        ages.put("Charlie", 35);
+        ages.put("Alice", 26);  // Updates existing key!
+        
+        // Get value by key - O(1) average
+        Integer aliceAge = ages.get("Alice");  // 26
+        Integer unknownAge = ages.get("Unknown");  // null
+        
+        // Get with default
+        Integer age = ages.getOrDefault("Unknown", 0);  // 0
+        
+        // Check if key/value exists - O(1)
+        boolean hasAlice = ages.containsKey("Alice");
+        boolean has25 = ages.containsValue(25);
+        
+        // Remove - O(1) average
+        ages.remove("Bob");
+        ages.remove("Charlie", 35);  // Remove only if value matches
+        
+        // Size and empty check
+        int size = ages.size();
+        boolean isEmpty = ages.isEmpty();
+        
+        // Iterate over entries
+        for (Map.Entry<String, Integer> entry : ages.entrySet()) {
+            System.out.println(entry.getKey() + ": " + entry.getValue());
+        }
+        
+        // Iterate over keys
+        for (String key : ages.keySet()) {
+            System.out.println(key);
+        }
+        
+        // Iterate over values
+        for (Integer value : ages.values()) {
+            System.out.println(value);
+        }
+        
+        // Java 8+ forEach
+        ages.forEach((k, v) -> System.out.println(k + " -> " + v));
+        
+        // Compute methods (Java 8+)
+        ages.putIfAbsent("David", 40);  // Only adds if key doesn't exist
+        ages.computeIfAbsent("Eve", k -> 45);  // Compute value if absent
+        ages.computeIfPresent("Alice", (k, v) -> v + 1);  // Update if present
+        ages.compute("Alice", (k, v) -> v == null ? 1 : v + 1);  // Both cases
+        
+        // Merge
+        ages.merge("Alice", 1, Integer::sum);  // Add 1 to Alice's age
+    }
+}
+```
+
+**When to use:** Most common map choice. Fast operations, no order guarantee.
+
+---
+
+### 11. LinkedHashMap
+**Best for:** Maintaining insertion order (or access order for LRU cache).
+
+```java
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+public class LinkedHashMapExample {
+    public static void main(String[] args) {
+        // Maintains insertion order
+        Map<String, String> capitals = new LinkedHashMap<>();
+        
+        capitals.put("India", "New Delhi");
+        capitals.put("USA", "Washington DC");
+        capitals.put("Japan", "Tokyo");
+        
+        // Always prints in insertion order!
+        capitals.forEach((k, v) -> System.out.println(k + ": " + v));
+        // India: New Delhi
+        // USA: Washington DC
+        // Japan: Tokyo
+        
+        // Access-order LinkedHashMap (for LRU cache)
+        LinkedHashMap<String, String> lruCache = new LinkedHashMap<>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
+                return size() > 3;  // Keep only 3 entries
+            }
+        };
+        
+        lruCache.put("A", "1");
+        lruCache.put("B", "2");
+        lruCache.put("C", "3");
+        lruCache.get("A");      // Access A, moves it to end
+        lruCache.put("D", "4"); // Adds D, removes B (least recently used)
+        
+        System.out.println(lruCache.keySet());  // [C, A, D]
+    }
+}
+```
+
+**When to use:** When you need predictable iteration order or implementing LRU cache.
+
+---
+
+### 12. TreeMap
+**Best for:** Sorted keys. Implements NavigableMap.
+
+```java
+import java.util.TreeMap;
+import java.util.NavigableMap;
+import java.util.Map;
+
+public class TreeMapExample {
+    public static void main(String[] args) {
+        // Keys are automatically sorted!
+        TreeMap<Integer, String> rankings = new TreeMap<>();
+        
+        rankings.put(3, "Bronze");
+        rankings.put(1, "Gold");
+        rankings.put(2, "Silver");
+        rankings.put(5, "Fifth");
+        rankings.put(4, "Fourth");
+        
+        System.out.println(rankings);  // {1=Gold, 2=Silver, 3=Bronze, 4=Fourth, 5=Fifth}
+        
+        // First and last entries
+        Map.Entry<Integer, String> first = rankings.firstEntry();  // 1=Gold
+        Map.Entry<Integer, String> last = rankings.lastEntry();    // 5=Fifth
+        
+        // First and last keys
+        Integer firstKey = rankings.firstKey();  // 1
+        Integer lastKey = rankings.lastKey();    // 5
+        
+        // Lower/Higher (exclusive)
+        Integer lowerKey = rankings.lowerKey(3);   // 2
+        Integer higherKey = rankings.higherKey(3); // 4
+        
+        // Floor/Ceiling (inclusive)
+        Integer floorKey = rankings.floorKey(3);     // 3
+        Integer ceilingKey = rankings.ceilingKey(3); // 3
+        
+        // Poll (remove) first/last
+        Map.Entry<Integer, String> pollFirst = rankings.pollFirstEntry();
+        Map.Entry<Integer, String> pollLast = rankings.pollLastEntry();
+        
+        // Submap views
+        NavigableMap<Integer, String> subMap = rankings.subMap(2, true, 4, true);
+        NavigableMap<Integer, String> headMap = rankings.headMap(3, false);  // < 3
+        NavigableMap<Integer, String> tailMap = rankings.tailMap(3, true);   // >= 3
+        
+        // Descending map
+        NavigableMap<Integer, String> descending = rankings.descendingMap();
+        
+        // Custom key ordering
+        TreeMap<String, Integer> scores = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        scores.put("alice", 100);
+        scores.put("Bob", 95);
+        scores.put("CHARLIE", 90);
+        // Keys sorted case-insensitively: alice, Bob, CHARLIE
+    }
+}
+```
+
+**When to use:** When you need keys in sorted order or range-based queries.
+
+---
+
+## Quick Reference: When to Use What?
+
+| Need | Use |
+|------|-----|
+| Fast access by index | `ArrayList` |
+| Fast insert/delete at ends | `LinkedList` or `ArrayDeque` |
+| Unique elements, no order | `HashSet` |
+| Unique elements, insertion order | `LinkedHashSet` |
+| Unique elements, sorted | `TreeSet` |
+| LIFO (Stack behavior) | `ArrayDeque` |
+| FIFO (Queue behavior) | `ArrayDeque` or `LinkedList` |
+| Priority-based processing | `PriorityQueue` |
+| Key-value, no order | `HashMap` |
+| Key-value, insertion order | `LinkedHashMap` |
+| Key-value, sorted keys | `TreeMap` |
+| Thread-safe list | `CopyOnWriteArrayList` or `Collections.synchronizedList()` |
+| Thread-safe map | `ConcurrentHashMap` |
+
 ## Methods of Collection Interface :
 
 <table class="alt">
@@ -131,6 +840,83 @@ A set is not ordered and cannot contain duplicates. Any given object either is o
 <tr><td>4) Comparable is found in <strong>java.lang</strong> package.</td><td>Comparator is found in <strong>java.util</strong> package.</td></tr>
 <tr><td>5) We can sort the list elements of Comparable type by <strong>Collections.sort(List)</strong> method.</td><td>We can sort the list elements of Comparator type by <strong>Collections.sort(List,Comparator)</strong> method.</td></tr>
 </tbody></table>
+
+### Code Examples
+
+**Comparable Example** - Single natural ordering (class is modified):
+```java
+// Student class implements Comparable - defines ONE natural ordering
+class Student implements Comparable<Student> {
+    int id;
+    String name;
+    double score;
+    
+    public Student(int id, String name, double score) {
+        this.id = id;
+        this.name = name;
+        this.score = score;
+    }
+    
+    // Natural ordering by ID (only ONE way to sort)
+    @Override
+    public int compareTo(Student other) {
+        return this.id - other.id;
+    }
+}
+
+// Usage
+List<Student> students = new ArrayList<>();
+Collections.sort(students);  // Sorts by ID (natural ordering)
+```
+
+**Comparator Example** - Multiple custom orderings (class is NOT modified):
+```java
+// Multiple Comparator implementations for different sort orders
+class NameComparator implements Comparator<Student> {
+    @Override
+    public int compare(Student s1, Student s2) {
+        return s1.name.compareTo(s2.name);
+    }
+}
+
+class ScoreComparator implements Comparator<Student> {
+    @Override
+    public int compare(Student s1, Student s2) {
+        return Double.compare(s2.score, s1.score);  // Descending order
+    }
+}
+
+// Usage - Choose any ordering without modifying Student class!
+Collections.sort(students, new NameComparator());   // Sort by name
+Collections.sort(students, new ScoreComparator());  // Sort by score (desc)
+```
+
+### Modern Java 8+ Comparator Features
+
+```java
+// Method references - cleaner syntax
+students.sort(Comparator.comparing(Student::getName));
+students.sort(Comparator.comparing(Student::getScore));
+
+// Chained comparators - sort by multiple fields
+students.sort(Comparator
+    .comparing(Student::getName)
+    .thenComparing(Student::getId)
+    .thenComparing(Student::getScore));
+
+// Reverse order
+students.sort(Comparator.comparing(Student::getScore).reversed());
+
+// Null-safe sorting
+students.sort(Comparator.nullsFirst(Comparator.comparing(Student::getName)));
+students.sort(Comparator.nullsLast(Comparator.comparing(Student::getName)));
+
+// Lambda expressions
+students.sort((s1, s2) -> s1.name.compareTo(s2.name));
+students.sort((s1, s2) -> Double.compare(s2.score, s1.score));  // Descending
+```
+
+**Key Insight:** With `Comparable`, the class defines its own single ordering. With `Comparator`, you can create unlimited external ordering strategies without touching the original class - making it more flexible and following the Open/Closed Principle.
 
 ## Legacy Data Structures in Java
 

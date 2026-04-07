@@ -208,13 +208,51 @@ NOTE : "final" keyword is used in Composition to make sure child variable is ini
 
 <table class="alt">
 <tbody><tr><th>Abstract class</th><th>Interface</th></tr>
-<tr><td>Abstract class can <strong>have abstract and non-abstract</strong> methods.</td><td>Interface can have <strong>only abstract</strong> methods. Since Java8, it can have <strong>default & static methods</strong> also.</td></tr>
+<tr><td>Abstract class can <strong>have abstract and non-abstract</strong> methods.</td><td>Interface can have <strong>only abstract</strong> methods. Since Java 8, it can have <strong>default & static methods</strong>. Since Java 9, it can have <strong>private methods</strong> also.</td></tr>
 <tr><td>Abstract class <strong>doesn't support multiple inheritance</strong>.</td><td>Interface <strong>supports multiple inheritance</strong>.</td></tr>
 <tr><td>Abstract class <strong>can have final, non-final, static and non-static variables</strong>.</td><td>Interface has <strong>only static and final variables</strong>.</td></tr>
 <tr><td>Abstract class <strong>can provide the implementation of interface</strong>.</td><td>Interface <strong>can't provide the implementation of abstract class</strong>.</td></tr>
 <tr><td>The <strong>abstract keyword</strong> is used to declare abstract class.</td><td>The <strong>interface keyword</strong> is used to declare interface.</td></tr>
 <tr><td><strong>Example:</strong><br> public abstract class Shape{<br>public abstract void draw();}</td><td><strong>Example:</strong><br> public interface Drawable{<br>void draw();}</td></tr>
 </tbody></table>
+
+### Modern Java Interface Evolution
+
+**Java 8 introduced:**
+- **default methods** - Interfaces can have method implementations using `default` keyword
+- **static methods** - Interfaces can have static utility methods
+
+**Java 9 introduced:**
+- **private methods** - Helper methods for default methods (code reuse within interface)
+- **private static methods** - Static helper methods
+
+```java
+public interface ModernInterface {
+    // Abstract method (traditional)
+    void abstractMethod();
+    
+    // Default method (Java 8+) - provides default implementation
+    default void defaultMethod() {
+        privateHelper();  // Can use private methods
+        System.out.println("Default implementation");
+    }
+    
+    // Static method (Java 8+) - utility method
+    static void staticMethod() {
+        System.out.println("Static method in interface");
+    }
+    
+    // Private method (Java 9+) - helper for default methods
+    private void privateHelper() {
+        System.out.println("Private helper");
+    }
+    
+    // Private static method (Java 9+)
+    private static void privateStaticHelper() {
+        System.out.println("Private static helper");
+    }
+}
+```
 
 ## Java Access Modifiers
 
@@ -241,6 +279,78 @@ NOTE : "final" keyword is used in Composition to make sure child variable is ini
 <tr><td>Abstraction means hiding implementation complexities by using interfaces and abstract class.</td>
 <td>Encapsulation means hiding data by using setters and getters.</td></tr>
 </tbody></table>
+
+### Code Examples
+
+**Abstraction Example** - Hiding complexity, showing only what matters:
+```java
+// Abstract class defines WHAT a vehicle does (abstraction)
+abstract class Vehicle {
+    abstract void start();
+    abstract void stop();
+    
+    // User doesn't need to know HOW these work internally
+}
+
+// Interface provides abstraction for payment processing
+interface PaymentProcessor {
+    void processPayment(double amount);  // Hide the complex payment logic
+}
+
+class CreditCardProcessor implements PaymentProcessor {
+    @Override
+    public void processPayment(double amount) {
+        // Complex implementation hidden from user
+        validateCard();
+        connectToBank();
+        deductAmount(amount);
+        sendConfirmation();
+    }
+    // All these private methods are hidden (abstracted away)
+    private void validateCard() { }
+    private void connectToBank() { }
+    private void deductAmount(double amt) { }
+    private void sendConfirmation() { }
+}
+```
+
+**Encapsulation Example** - Protecting data with controlled access:
+```java
+class BankAccount {
+    // Private fields - data is HIDDEN (encapsulated)
+    private String accountNumber;
+    private double balance;
+    
+    // Constructor
+    public BankAccount(String accNo, double initialBalance) {
+        this.accountNumber = accNo;
+        this.balance = initialBalance;
+    }
+    
+    // Public getter - CONTROLLED read access
+    public double getBalance() {
+        return balance;
+    }
+    
+    // Public methods - CONTROLLED write access with validation
+    public void deposit(double amount) {
+        if (amount > 0) {
+            balance += amount;  // Protected modification
+        }
+    }
+    
+    public void withdraw(double amount) {
+        if (amount > 0 && amount <= balance) {
+            balance -= amount;  // Safe withdrawal with validation
+        }
+    }
+    
+    // No setter for balance - prevents direct manipulation!
+    // No getter for accountNumber - extra security!
+}
+```
+
+**Key Insight:** In the `BankAccount` example, you can't do `account.balance = -1000;` (encapsulation prevents misuse), and you don't need to know how `withdraw()` internally processes the transaction (abstraction hides complexity).
 
 ## Methods of Object Class
 The Object class is the parent class of all the classes in java by default.
