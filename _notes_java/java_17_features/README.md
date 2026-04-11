@@ -128,7 +128,9 @@ public final class Square implements Shape { ... }
 // Rectangle is wide open - anyone can extend Rectangle.
 public non-sealed class Rectangle implements Shape { ... } 
 
-// class Triangle implements Shape { } // COMPILATION ERROR! Triangle is not permitted.
+// class Triangle implements Shape { } 
+// COMPILATION ERROR! Triangle is not permitted.
+// error: class is not allowed to extend sealed class: Shape (as it is not listed in its permits clause)
 ```
 
 ---

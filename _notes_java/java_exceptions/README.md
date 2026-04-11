@@ -71,6 +71,27 @@ But if exception is handled by the application programmer, normal flow of the ap
 
 - All catch blocks must be ordered from most specific to most general i.e. catch for ArithmeticException must come before catch for Exception.
 
+### Multi-catch block (Java 7+)
+
+Introduced in Java 7, the **multi-catch** block allows you to catch multiple types of exceptions in a single `catch` block using the vertical bar (`|`) operator, which helps reduce code duplication when multiple exceptions are handled in the same way.
+
+```java
+try {
+    // Code that might throw multiple exception types
+    int result = 10 / 0;
+    String text = null;
+    text.length();
+} catch (ArithmeticException | NullPointerException e) {
+    // Handle both exceptions identically here
+    System.out.println("An error occurred: " + e.getMessage());
+}
+```
+
+**Important Rules for Multi-catch:**
+1. **No Ancestor-Descendant Relationships**: You cannot catch two exceptions if one is a subclass of the other. For example, `catch (FileNotFoundException | IOException e)` will cause a compilation error.
+2. **Exception Variable is final**: The exception variable (`e` in the example) is implicitly `final` in a multi-catch block and cannot be reassigned inside the block.
+
+
 ## Using finally block
 
 - If you don't handle exception, before terminating the program, JVM executes finally block(if any).
