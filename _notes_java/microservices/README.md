@@ -89,3 +89,116 @@ The client does not wait for a response.
 - **Orchestration:** Kubernetes (K8s) (automating deployment, scaling, and management of containerized applications).
 - **Service Mesh:** Istio, Linkerd (manages service-to-service communication, security, and observability at the infrastructure layer without changing application code).
 - **CI/CD:** Jenkins, GitHub Actions, GitLab CI (Automated pipelines for building, testing, and deploying services).
+
+---
+
+## Interview Questions — Microservices Architecture
+
+**Q1. What is a microservice? How is it different from a monolith?**
+| | Monolith | Microservices |
+|---|---|---|
+| Deployment | Single deployable unit | Many independent services |
+| Scaling | Scale whole app | Scale individual services |
+| Technology | One stack | Polyglot (each service chooses its own) |
+| Development | Simple to start | Complex (network, distributed transactions) |
+| Failure | Single point of failure | Isolated failures |
+| Team | Single team | Small independent teams |
+
+**Q2. What is an API Gateway? What does it do?**
+- Single entry point for all client requests.
+- Responsibilities: **authentication/authorization**, **rate limiting**, **SSL termination**, **request routing**, **load balancing**, **response aggregation**.
+- Examples: AWS API Gateway, Kong, Netflix Zuul, Spring Cloud Gateway.
+```
+Client → API Gateway → [UserService, OrderService, ProductService]
+                     ↑ handles auth, routing, rate limiting
+```
+
+**Q3. What is the Circuit Breaker pattern? Why is it needed?**
+- Prevents cascading failures: if Service B is slow/down, Service A should fail fast instead of waiting (and exhausting its thread pool).
+- States: **Closed** (normal) → **Open** (failing, short-circuit) → **Half-Open** (test recovery).
+```java
+// Spring Cloud + Resilience4j
+@CircuitBreaker(name = "paymentService", fallbackMethod = "fallback")
+public Order processPayment(Order order) {
+    return paymentClient.charge(order);
+}
+
+public Order fallback(Order order, Exception ex) {
+    order.setStatus("PAYMENT_PENDING");  // graceful degradation
+    return order;
+}
+```
+
+**Q4. What is the Saga pattern for distributed transactions?**
+- Distributed transactions can't use traditional ACID (databases on different services).
+- **Saga** = sequence of local transactions, each publishing an event for the next step.
+- On failure: execute compensating transactions to undo previous steps.
+```
+OrderService → CreateOrder
+    → PaymentService → ChargeCard → success
+        → InventoryService → ReserveItems → fail!
+            → PaymentService → RefundCard (compensating tx)
+            → OrderService → CancelOrder (compensating tx)
+```
+- **Choreography**: services react to events (decoupled, harder to trace).
+- **Orchestration**: central coordinator (easier to trace, more coupling).
+
+**Q5. What is CQRS? When would you use it?**
+- **Command Query Responsibility Segregation**: separate write model (commands) from read model (queries).
+- Write model: normalized, optimized for consistency.
+- Read model: denormalized, optimized for query performance (separate DB or materialized views).
+- **When to use**: high-read vs. write imbalance, complex reporting queries, event sourcing systems.
+- **Drawback**: eventual consistency between write and read models, added complexity.
+
+**Q6. What is service discovery? How does it work in Spring Cloud?**
+```java
+// Eureka Server
+@EnableEurekaServer
+@SpringBootApplication
+public class ServiceRegistry { ... }
+
+// Client registers itself
+// application.yml:
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+
+// Client discovers and calls another service
+@LoadBalanced  // resolves service name to actual URL
+@Bean
+RestTemplate restTemplate() { return new RestTemplate(); }
+
+// Call by service name — no hardcoded IP!
+restTemplate.getForObject("http://ORDER-SERVICE/orders/{id}", Order.class, id);
+```
+
+**Q7. What is the difference between synchronous and asynchronous communication in microservices?**
+| | Synchronous (REST/gRPC) | Asynchronous (Kafka/RabbitMQ) |
+|---|---|---|
+| Coupling | Tight (caller waits) | Loose (publish and forget) |
+| Failure handling | Caller fails if service is down | Message queued until service recovers |
+| Latency | Lower for simple calls | Higher (message broker overhead) |
+| Use case | Real-time responses needed | Background processing, event-driven |
+
+**Q8. What is the Database-per-Service pattern? What problem does it solve?**
+- Each microservice has its own private database (not shared with other services).
+- Ensures **loose coupling** — schema changes in one service don't break others.
+- Services can choose optimal database type (SQL, NoSQL, Graph).
+- Challenge: distributed transactions (solved with Saga), cross-service queries (solved with CQRS/read models/API aggregation).
+
+**Q9. What are the key challenges of microservices?**
+1. **Distributed transactions** — no ACID across services (Saga pattern).
+2. **Service discovery** — how services find each other (Eureka, Consul, K8s DNS).
+3. **Network latency** — calls now go over network instead of in-process.
+4. **Distributed tracing** — hard to trace a request across 10 services (Zipkin, Jaeger, OpenTelemetry).
+5. **Data consistency** — eventual consistency instead of strong consistency.
+6. **Security** — service-to-service authentication (mTLS, JWT).
+7. **Complexity** — more moving parts, more failure modes.
+
+**Q10. What is Event Sourcing?**
+- Instead of storing current state, store all **events** that led to that state.
+- Example: instead of `balance = 1000`, store `[AccountCreated(500), Deposited(700), Withdrawn(200)]`.
+- **Benefits**: full audit trail, can reconstruct state at any point in time, naturally produces events for other services.
+- **Drawbacks**: complex to query current state, schema evolution of events is tricky.
+- Often used with CQRS: write side = event store, read side = projected view.

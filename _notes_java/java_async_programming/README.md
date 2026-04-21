@@ -1139,3 +1139,124 @@ public class ProductService {
 
 > **Created**: February 2026
 > **Topic**: Async Programming in Java — From Threads to Virtual Threads
+
+---
+
+## Interview Questions — Async Programming & CompletableFuture
+
+**Q1. What is the difference between `Future` and `CompletableFuture`?**
+| | Future | CompletableFuture |
+|---|---|---|
+| Result retrieval | `get()` — blocking only | `get()`, `join()`, or callbacks |
+| Chaining | No | Yes (`thenApply`, `thenCompose`, etc.) |
+| Exception handling | `get()` throws | `exceptionally()`, `handle()` |
+| Combine futures | No | `allOf()`, `anyOf()`, `thenCombine()` |
+| Manual completion | No | Yes: `complete()`, `completeExceptionally()` |
+| Callback-based | No | Yes (`thenAccept`, `thenRun`) |
+
+**Q2. What is the difference between `thenApply()` and `thenCompose()`?**
+```java
+// thenApply — for synchronous transformation (T → U)
+CompletableFuture<String> cf = CompletableFuture.supplyAsync(() -> 42)
+    .thenApply(n -> "Result: " + n);  // wraps in CompletableFuture<String>
+
+// thenCompose — for chaining async tasks (T → CompletableFuture<U>)
+// Avoids CompletableFuture<CompletableFuture<U>> nesting
+CompletableFuture<UserProfile> cf2 = getUser()
+    .thenCompose(user -> getProfile(user.getId()));  // returns flattened future
+// thenApply here would give CompletableFuture<CompletableFuture<UserProfile>>
+```
+
+**Q3. What happens when an exception is thrown inside `supplyAsync()`?**
+```java
+CompletableFuture<String> cf = CompletableFuture.supplyAsync(() -> {
+    throw new RuntimeException("Failed!");
+});
+
+// Without error handling — exception is swallowed until you call join()/get()
+cf.join();  // throws CompletionException wrapping RuntimeException
+
+// With exceptionally:
+String result = cf.exceptionally(ex -> "fallback").join();  // "fallback"
+
+// With handle (always runs):
+cf.handle((res, ex) -> ex != null ? "error: " + ex.getMessage() : res).join();
+```
+
+**Q4. What is the difference between `allOf()` and `anyOf()`?**
+```java
+CompletableFuture<String> f1 = CompletableFuture.supplyAsync(() -> fetchA());
+CompletableFuture<String> f2 = CompletableFuture.supplyAsync(() -> fetchB());
+CompletableFuture<String> f3 = CompletableFuture.supplyAsync(() -> fetchC());
+
+// allOf — waits for ALL to complete (returns Void)
+CompletableFuture.allOf(f1, f2, f3).thenRun(() -> {
+    String a = f1.join(), b = f2.join(), c = f3.join();
+    // All results available
+}).join();
+
+// anyOf — returns when the FIRST one completes
+Object first = CompletableFuture.anyOf(f1, f2, f3).join();
+// Returns the result of whichever completed first
+```
+
+**Q5. What is the difference between `join()` and `get()`?**
+| | `get()` | `join()` |
+|---|---|---|
+| Checked exceptions | Throws `InterruptedException`, `ExecutionException` | No checked exceptions |
+| Unchecked exceptions | `ExecutionException` (wraps cause) | `CompletionException` (wraps cause) |
+| Usage | Must handle checked exceptions | Cleaner in lambda/stream chains |
+
+**Q6. What is `CompletableFuture.runAsync()` vs `supplyAsync()`?**
+```java
+// runAsync — fire-and-forget (no return value)
+CompletableFuture<Void> cf1 = CompletableFuture.runAsync(() -> {
+    sendEmail("user@example.com");  // no return
+});
+
+// supplyAsync — async computation with a result
+CompletableFuture<String> cf2 = CompletableFuture.supplyAsync(() -> {
+    return fetchDataFromDB();  // returns a value
+});
+```
+
+**Q7. What thread pool does `CompletableFuture` use by default?**
+- `ForkJoinPool.commonPool()` by default — a shared pool with `(# CPU cores - 1)` threads.
+- This is fine for CPU-bound tasks, but for I/O-bound tasks you should use a dedicated thread pool to avoid starving the common pool.
+```java
+ExecutorService ioPool = Executors.newFixedThreadPool(20);
+CompletableFuture.supplyAsync(() -> dbQuery(), ioPool);
+```
+
+**Q8. What is Virtual Thread (Project Loom)? How does it improve over platform threads?**
+- Platform threads map 1:1 to OS threads (~1MB stack each). Max ~1000-2000 before OOM.
+- Virtual threads are JVM-managed. When they block on I/O, the JVM **unmounts** them from the carrier OS thread, freeing it to run another virtual thread.
+- Can create **millions** of virtual threads. Perfect for I/O-heavy server apps.
+- With `Executors.newVirtualThreadPerTaskExecutor()`, each request gets its own virtual thread — simpler code than reactive/async, similar throughput.
+
+**Q9. What is `orTimeout()` vs `completeOnTimeout()`?**
+```java
+// orTimeout: throws TimeoutException if not completed within the time
+CompletableFuture.supplyAsync(() -> slowOp())
+    .orTimeout(3, TimeUnit.SECONDS)
+    .exceptionally(ex -> "timed out");
+
+// completeOnTimeout: completes with a default value instead of throwing
+CompletableFuture.supplyAsync(() -> slowOp())
+    .completeOnTimeout("default value", 3, TimeUnit.SECONDS);
+```
+
+**Q10. What is `whenComplete()` vs `handle()` vs `exceptionally()`?**
+```java
+// whenComplete — side-effect only (does NOT change the result)
+cf.whenComplete((result, ex) -> {
+    if (ex != null) logger.error("failed", ex);
+    else logger.info("done: " + result);
+});  // result type unchanged
+
+// handle — can transform result OR exception (always runs)
+cf.handle((result, ex) -> ex != null ? "fallback" : result.toUpperCase());
+
+// exceptionally — only runs on exception, provides fallback
+cf.exceptionally(ex -> "fallback value");
+```

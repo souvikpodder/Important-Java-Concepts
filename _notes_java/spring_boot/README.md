@@ -1527,3 +1527,155 @@ logging.level.root=WARN
 
 > **Created**: February 2026  
 > **Topic**: Spring Boot — Features, Architecture & Annotations
+
+---
+
+## Interview Questions — Spring Boot
+
+**Q1. What is Spring Boot and how is it different from the Spring Framework?**
+- **Spring Framework**: a comprehensive framework requiring manual configuration of beans, XML files, or @Configuration classes. You wire everything yourself.
+- **Spring Boot**: opinionated, convention-over-configuration wrapper on Spring. Provides:
+  - Auto-configuration (detects classpath and configures beans automatically)
+  - Embedded server (Tomcat/Jetty — no WAR deployment needed)
+  - Starter dependencies (spring-boot-starter-web pulls all needed transitive deps)
+  - Production-ready features (Actuator)
+
+**Q2. What does `@SpringBootApplication` do? What annotations does it combine?**
+```java
+@SpringBootApplication
+// Equivalent to:
+@Configuration     // marks as config class, allows @Bean methods
+@EnableAutoConfiguration  // enables Spring Boot's auto-configuration
+@ComponentScan    // scans current package and sub-packages for @Component, @Service, etc.
+public class App { ... }
+```
+
+**Q3. What is Spring Boot auto-configuration? How does it work?**
+- Auto-configuration classes are listed in `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` (Spring Boot 3+) or `META-INF/spring.factories` (Spring Boot 2).
+- Each auto-config class uses `@ConditionalOn*` annotations to activate only when the right classes/beans are present.
+```java
+// Example: DataSourceAutoConfiguration activates only if JDBC is on classpath
+@ConditionalOnClass(DataSource.class)
+@ConditionalOnMissingBean(DataSource.class)  // but only if user hasn't defined one
+public class DataSourceAutoConfiguration { ... }
+```
+
+**Q4. What is the difference between `@Component`, `@Service`, `@Repository`, and `@Controller`?**
+- All are specializations of `@Component` — functionally equivalent in terms of bean creation.
+- **Semantic differences**:
+  - `@Repository`: enables JPA exception translation (wraps DB exceptions to Spring's `DataAccessException`).
+  - `@Service`: marks business logic layer — no special behavior, just readability.
+  - `@Controller`: marks MVC controller — Spring MVC recognizes it for request mapping.
+  - `@RestController` = `@Controller` + `@ResponseBody`.
+
+**Q5. What is the difference between constructor injection, setter injection, and field injection?**
+```java
+// Constructor injection (PREFERRED)
+@Service
+class UserService {
+    private final UserRepository repo;
+    UserService(UserRepository repo) { this.repo = repo; }  // immutable, testable
+}
+
+// Setter injection (for optional dependencies)
+@Autowired
+public void setRepo(UserRepository repo) { this.repo = repo; }
+
+// Field injection (convenient but NOT recommended for production)
+@Autowired
+private UserRepository repo;  // hard to test without Spring context
+```
+- **Prefer constructor injection**: immutable fields, no null risks, works without Spring in unit tests.
+
+**Q6. What is `@Transactional`? What are its propagation levels?**
+```java
+@Transactional(
+    propagation = Propagation.REQUIRED,   // default: use existing tx or create new
+    isolation = Isolation.READ_COMMITTED, // default depends on DB
+    readOnly = true,                      // optimization for read-only queries
+    rollbackFor = IOException.class,      // rollback on this exception too
+    timeout = 30                          // timeout in seconds
+)
+public void doWork() { ... }
+```
+
+| Propagation | Behavior |
+|---|---|
+| `REQUIRED` | Use existing tx; create new if none (default) |
+| `REQUIRES_NEW` | Always create a new tx; suspend existing |
+| `SUPPORTS` | Use existing tx; run non-transactionally if none |
+| `NOT_SUPPORTED` | Run non-transactionally; suspend existing tx |
+| `MANDATORY` | Use existing tx; throw if none |
+| `NEVER` | Run non-transactionally; throw if tx exists |
+| `NESTED` | Run in nested tx if tx exists; create new if none |
+
+**Q7. What is the N+1 problem in JPA and how do you fix it?**
+```java
+// N+1 problem: loading 1 department + N queries for employees
+List<Department> depts = deptRepo.findAll();  // 1 query
+depts.forEach(d -> d.getEmployees().size()); // N more queries!
+
+// Fix 1: JOIN FETCH in JPQL
+@Query("SELECT d FROM Department d JOIN FETCH d.employees")
+List<Department> findAllWithEmployees();
+
+// Fix 2: @EntityGraph
+@EntityGraph(attributePaths = "employees")
+List<Department> findAll();
+
+// Fix 3: Batch size (reduces N+1 to N/batch_size + 1)
+@BatchSize(size = 20)
+@OneToMany
+private List<Employee> employees;
+```
+
+**Q8. What is the difference between `@RestController` and `@Controller`?**
+- `@Controller` returns view names (for MVC with templates like Thymeleaf).
+- `@RestController` = `@Controller` + `@ResponseBody` — every method returns the response body directly (serialized to JSON/XML), not a view name.
+
+**Q9. How do Spring Boot profiles work? How do you activate them?**
+```bash
+# Via command line
+java -jar app.jar --spring.profiles.active=prod
+
+# Via environment variable
+export SPRING_PROFILES_ACTIVE=prod
+
+# Via application.properties
+spring.profiles.active=dev
+```
+- Profile-specific files: `application-dev.yml`, `application-prod.yml` override/extend `application.yml`.
+- `@Profile("dev")` on a `@Bean` or `@Component` activates it only for that profile.
+
+**Q10. What is Spring AOP? What problems does it solve?**
+- AOP (Aspect-Oriented Programming) separates **cross-cutting concerns** (logging, security, transactions, caching) from business logic.
+- Key concepts: **Aspect** (what), **JoinPoint** (where), **Pointcut** (selector for JoinPoints), **Advice** (when: `@Before`, `@After`, `@Around`).
+- Spring's `@Transactional` is itself implemented as an AOP aspect.
+- AOP works via **proxy objects** — Spring wraps your bean in a proxy that intercepts calls.
+
+**Q11. What is Actuator? Which endpoints are most important in production?**
+- Actuator exposes operational endpoints for monitoring/management.
+- Key endpoints: `/health` (load balancer checks), `/metrics` (Micrometer metrics), `/env` (active properties), `/loggers` (change log level at runtime), `/info` (app metadata), `/shutdown` (controlled shutdown — disabled by default).
+- Secure actuator in production: only expose `/health` and `/info` publicly.
+
+**Q12. What is `@Cacheable` and how does Spring caching work?**
+```java
+@EnableCaching  // on @SpringBootApplication or @Configuration
+public class AppConfig { }
+
+@Service
+class ProductService {
+    @Cacheable(value = "products", key = "#id")  // cache result by id
+    public Product findById(Long id) {
+        return repository.findById(id).orElseThrow();  // not called if cached
+    }
+
+    @CacheEvict(value = "products", key = "#id")  // remove from cache
+    public void update(Long id, Product p) { ... }
+
+    @CachePut(value = "products", key = "#result.id")  // update cache
+    public Product save(Product p) { return repository.save(p); }
+}
+```
+- Default cache: `ConcurrentHashMap` (in-memory, JVM-local).
+- For distributed caching: use Redis with `spring-boot-starter-data-redis`.

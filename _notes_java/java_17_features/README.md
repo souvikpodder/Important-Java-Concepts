@@ -142,3 +142,120 @@ In Java 14+, the JVM tells you exactly which variable caused the fault.
 
 **Example Trace Output:**
 `Exception in thread "main" java.lang.NullPointerException: Cannot invoke "String.length()" because the return value of "User.getEmail()" is null`
+
+---
+
+## Interview Questions — Java 17 Features (12–17)
+
+**Q1. What is a Record in Java? What does it auto-generate?**
+```java
+public record Point(int x, int y) {}
+// Auto-generates:
+// - private final int x, y
+// - public int x(), int y()  (accessor methods, NOT getX/getY)
+// - equals(), hashCode(), toString()
+// - All-args constructor
+
+Point p = new Point(3, 4);
+p.x();          // 3 (not p.getX())
+p.toString();   // Point[x=3, y=4]
+```
+- Records are **immutable** (fields are final).
+- Can have custom methods, but cannot add instance fields beyond the components.
+- Use for DTOs, response objects, value types.
+
+**Q2. What are Text Blocks? What problem do they solve?**
+```java
+// Pre Java 13: painful JSON/SQL strings
+String sql = "SELECT u.id, u.name, o.total\n" +
+             "FROM users u\n" +
+             "JOIN orders o ON u.id = o.user_id\n" +
+             "WHERE u.active = true";
+
+// Java 13+ Text Blocks: clean, readable multi-line strings
+String sql = """
+        SELECT u.id, u.name, o.total
+        FROM users u
+        JOIN orders o ON u.id = o.user_id
+        WHERE u.active = true
+        """;
+// The closing """ determines the indentation baseline
+```
+
+**Q3. What is a Sealed class? When would you use it?**
+- Restricts which classes can extend/implement it — gives you a **closed** type hierarchy.
+- Works perfectly with pattern matching `switch` — compiler knows all possible subtypes.
+```java
+public sealed interface Shape permits Circle, Rectangle, Triangle {}
+public record Circle(double radius) implements Shape {}
+public record Rectangle(double w, double h) implements Shape {}
+public record Triangle(double base, double height) implements Shape {}
+
+// Compiler knows all cases — no default needed!
+double area = switch (shape) {
+    case Circle c    -> Math.PI * c.radius() * c.radius();
+    case Rectangle r -> r.w() * r.h();
+    case Triangle t  -> 0.5 * t.base() * t.height();
+};
+```
+
+**Q4. What is `switch` expression (Java 14+)? How is it different from `switch` statement?**
+```java
+// Old switch statement — verbose, fall-through issues
+int day = 3;
+String dayName;
+switch (day) {
+    case 1: dayName = "Monday"; break;
+    case 2: dayName = "Tuesday"; break;
+    default: dayName = "Unknown"; break;
+}
+
+// New switch expression (Java 14+) — concise, no fall-through, returns a value
+String dayName = switch (day) {
+    case 1 -> "Monday";     // arrow syntax, no fall-through
+    case 2 -> "Tuesday";
+    case 3, 4 -> "Mid-week"; // multiple cases
+    default -> "Unknown";
+};
+
+// Also supports yield for multi-statement blocks:
+int result = switch (op) {
+    case "add" -> a + b;
+    case "multiply" -> {
+        int product = a * b;
+        yield product;        // 'yield' returns a value from a block
+    }
+    default -> throw new IllegalArgumentException("Unknown op: " + op);
+};
+```
+
+**Q5. What is `instanceof` pattern matching (Java 16)?**
+```java
+// Old way — redundant cast
+if (obj instanceof String) {
+    String s = (String) obj;
+    System.out.println(s.length());
+}
+
+// New way — pattern variable
+if (obj instanceof String s) {
+    System.out.println(s.length());  // s is already cast and in scope
+}
+
+// Combined with conditions (Java 16)
+if (obj instanceof String s && s.length() > 10) {
+    System.out.println("Long string: " + s);
+}
+// s is in scope only where the instanceof check is true
+```
+
+**Q6. What are the key differences between Java 8 and Java 17?**
+| Feature | Java 8 | Java 17 |
+|---|---|---|
+| Data carriers | Mutable POJOs | `record` (immutable, concise) |
+| Multi-line strings | `+` concatenation | Text Blocks `"""..."""` |
+| Null-safe cast | `if (x instanceof T) { T t = (T)x; }` | `if (x instanceof T t)` |
+| Switch | Statement only | Expression with `->`, `yield` |
+| Type hierarchy | Open extension | `sealed` classes |
+| Error messages | Vague NPE | Helpful NPE (what was null) |
+| LTS? | Yes | Yes |

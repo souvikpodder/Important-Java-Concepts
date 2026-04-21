@@ -431,3 +431,227 @@ System.out.println(Runtime.getRuntime().availableProcessors());
 System.out.println("Total Memory: "+Runtime.totalMemory());  
 System.out.println("Free Memory: "+Runtime.freeMemory());  
 ```
+
+---
+
+## ExecutorService & Thread Pool Framework
+
+### Why Thread Pools?
+Creating a new thread for every task is expensive (time + memory). Thread pools reuse a fixed set of threads.
+
+```java
+import java.util.concurrent.*;
+
+// Fixed thread pool — exactly N threads
+ExecutorService fixed = Executors.newFixedThreadPool(5);
+
+// Cached thread pool — creates threads on demand, reuses idle threads
+ExecutorService cached = Executors.newCachedThreadPool();
+
+// Single thread executor — exactly 1 thread, tasks run sequentially
+ExecutorService single = Executors.newSingleThreadExecutor();
+
+// Scheduled pool — for delayed/recurring tasks
+ScheduledExecutorService scheduled = Executors.newScheduledThreadPool(3);
+
+// Submit tasks
+Future<Integer> future = fixed.submit(() -> {
+    Thread.sleep(1000);
+    return 42;
+});
+
+// Get result (blocks until done)
+Integer result = future.get();
+Integer resultWithTimeout = future.get(5, TimeUnit.SECONDS); // timeout
+
+// Check status
+future.isDone();
+future.isCancelled();
+future.cancel(true);  // interrupt the thread if running
+
+// Always shut down the executor
+fixed.shutdown();           // graceful: waits for tasks to finish
+fixed.shutdownNow();        // forceful: interrupts running tasks
+fixed.awaitTermination(10, TimeUnit.SECONDS); // wait for graceful shutdown
+```
+
+### Thread Pool Sizing Guidelines
+- **CPU-bound tasks**: `# threads = # CPU cores` (use `Runtime.getRuntime().availableProcessors()`)
+- **I/O-bound tasks**: `# threads = # CPU cores * (1 + wait-time / compute-time)` — can be significantly more
+
+---
+
+## `volatile` Keyword
+
+`volatile` ensures that reads and writes to a variable go directly to **main memory**, bypassing CPU cache. It prevents **visibility problems** between threads.
+
+```java
+class StopFlag {
+    private volatile boolean running = true;  // without volatile, loop may never stop
+
+    public void run() {
+        while (running) {  // each thread reads from main memory
+            doWork();
+        }
+    }
+
+    public void stop() {
+        running = false;  // write is immediately visible to all threads
+    }
+}
+```
+
+**`volatile` vs `synchronized`:**
+- `volatile`: guarantees **visibility** only. NOT atomic for compound operations (`i++` is NOT safe with volatile).
+- `synchronized`: guarantees **visibility + atomicity + ordering** (mutual exclusion).
+
+---
+
+## `Callable` vs `Runnable`
+
+| | Runnable | Callable<V> |
+|---|---|---|
+| Return value | None (void) | Returns V |
+| Checked exceptions | Cannot throw | Can throw |
+| Method | `run()` | `call()` |
+| Submit via | `execute()` or `submit()` | `submit()` only |
+
+```java
+Runnable r = () -> System.out.println("No result");
+executor.execute(r);  // fire and forget
+
+Callable<String> c = () -> {
+    Thread.sleep(100);
+    return "Result";  // returns a value
+};
+Future<String> f = executor.submit(c);
+String result = f.get();  // blocks until callable finishes
+```
+
+---
+
+## Virtual Threads (Java 21 — Project Loom)
+
+```java
+// Platform thread — maps to OS thread (expensive, ~1MB stack)
+Thread t = new Thread(() -> processRequest());
+
+// Virtual thread — maps to JVM-managed fiber (cheap, ~few KB)
+Thread vt = Thread.ofVirtual().start(() -> processRequest());
+
+// Create via executor (preferred in server apps)
+try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+    for (int i = 0; i < 1_000_000; i++) {
+        executor.submit(() -> handleRequest());  // 1M virtual threads!
+    }
+}
+// Virtual threads are automatically unmounted from OS thread during blocking I/O
+// → no thread waste → massive throughput improvement for I/O-bound apps
+```
+
+---
+
+## Interview Questions — Multithreading
+
+**Q1. What is the difference between `Thread.sleep()` and `Object.wait()`?**
+| | `sleep()` | `wait()` |
+|---|---|---|
+| Class | Thread (static) | Object (instance) |
+| Lock | Does NOT release lock | Releases the lock |
+| Wake up | After timeout expires | After `notify()` / `notifyAll()` |
+| Must be in synchronized | No | Yes (else IllegalMonitorStateException) |
+
+**Q2. What is the difference between `start()` and `run()`?**
+- `start()`: creates a **new thread** and runs `run()` in that thread.
+- `run()`: executes in the **current (calling) thread** — no new thread created.
+- Calling `run()` directly is a common bug — everything runs sequentially.
+
+**Q3. What is a race condition? Give an example.**
+- When the outcome depends on the relative timing of threads accessing shared data.
+```java
+int count = 0;
+// Thread 1: count++   (read 0, add 1, write 1)
+// Thread 2: count++   (also reads 0, adds 1, writes 1) — LOST UPDATE!
+// Expected: 2, Actual: 1
+```
+- Fix: use `synchronized`, `AtomicInteger`, or `ReentrantLock`.
+
+**Q4. What is a deadlock? How do you detect and prevent it?**
+- **Deadlock**: Thread A holds lock 1, waits for lock 2. Thread B holds lock 2, waits for lock 1. Both wait forever.
+- **Detect**: Thread dump (`jstack`), `ThreadMXBean.findDeadlockedThreads()`.
+- **Prevent**:
+  1. **Lock ordering**: always acquire locks in the same order across all threads.
+  2. **Timeout**: use `tryLock(timeout)` from `ReentrantLock`.
+  3. **Lock-free** algorithms: use `Atomic*` classes.
+  4. Avoid nested locks.
+
+**Q5. What is a daemon thread?**
+- A background service thread (e.g., garbage collector). JVM exits when only daemon threads remain.
+- Set before `start()`: `thread.setDaemon(true)`.
+- Daemon threads should NOT hold resources that need cleanup (JVM can kill them mid-operation).
+
+**Q6. What is the Java Memory Model (JMM)?**
+- Defines how threads interact through memory — visibility, ordering, and atomicity.
+- Key rules: `volatile` ensures visibility. `synchronized` ensures visibility + atomicity. `happens-before` relationship ensures correct ordering.
+- Without JMM guarantees, CPUs/compilers can reorder operations, causing subtle bugs.
+
+**Q7. What is `ThreadLocal`? When would you use it?**
+```java
+ThreadLocal<Integer> threadId = ThreadLocal.withInitial(() -> 0);
+threadId.set(Thread.currentThread().getId());
+threadId.get();   // each thread gets its OWN copy
+threadId.remove(); // clean up to avoid memory leaks in thread pools
+```
+- Use cases: per-thread `SimpleDateFormat`, database connection, request context in web apps.
+- **Warning**: thread pool threads are reused — always call `remove()` after use.
+
+**Q8. Explain `join()` with an example.**
+```java
+Thread t1 = new Thread(() -> heavyComputation());
+t1.start();
+t1.join();  // main thread waits here until t1 finishes
+System.out.println("t1 done");  // guaranteed to print after t1 finishes
+```
+
+**Q9. What is `Future` and what are its limitations?**
+- `Future<V>` represents the result of an async computation.
+- Limitations: `get()` blocks (no callbacks), can't combine multiple futures easily, no exception handling chaining.
+- Solution: `CompletableFuture` (Java 8+) overcomes all these.
+
+**Q10. How many threads should you have in a thread pool?**
+- **CPU-bound**: `N = Runtime.getRuntime().availableProcessors()` (no benefit from more — just context switching overhead).
+- **I/O-bound**: `N = Ncores * (1 + W/C)` where W=wait time, C=compute time. Can be 10x-100x core count.
+- In practice: measure and tune with profiling/load testing.
+
+**Q11. What is `CountDownLatch` vs `CyclicBarrier`?**
+```java
+// CountDownLatch: wait until N events happen (one-time use)
+CountDownLatch latch = new CountDownLatch(3);
+// In 3 threads: latch.countDown();
+latch.await();  // main thread waits until count reaches 0
+
+// CyclicBarrier: N threads wait for EACH OTHER to reach a barrier (reusable)
+CyclicBarrier barrier = new CyclicBarrier(3, () -> System.out.println("All threads at barrier"));
+// In each of 3 threads: barrier.await();  — proceeds when all 3 arrive
+```
+
+**Q12. What is the difference between `synchronized` method and `synchronized` block?**
+- `synchronized` method: locks the entire method on `this` (for instance methods) or the Class object (for static methods).
+- `synchronized` block: locks only the specified section on a given object — allows finer granularity and can use a dedicated lock object (better for performance).
+```java
+synchronized void fullMethod() { ... }           // locks 'this' for entire method
+
+void partialSync() {
+    // non-synchronized code
+    synchronized(this) {                          // lock only critical section
+        sharedCounter++;
+    }
+    // more non-synchronized code
+}
+
+// Using a dedicated lock object (preferred)
+private final Object lock = new Object();
+void withDedicatedLock() {
+    synchronized(lock) { sharedCounter++; }
+}
+```

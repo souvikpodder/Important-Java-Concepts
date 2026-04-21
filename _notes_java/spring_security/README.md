@@ -221,3 +221,122 @@ Here are common interview questions and real-world analogies to explain these co
 2.  **OAuth 2.0 / OIDC** are the protocols dictating how tokens are acquired and validated.
 3.  **WSO2 IS** is the external service that actually verifies the user's password and issues the signed Web Tokens (JWTs).
 4.  By configuring Spring as an `oauth2-client` or `oauth2-resource-server`, Spring delegates the heavy lifting of password management to WSO2 and trusts its cryptographic signatures.
+
+---
+
+## Additional Interview Questions — Spring Security, OAuth2, JWT
+
+**Q1. What is a JWT (JSON Web Token)? What are its three parts?**
+```
+Header.Payload.Signature
+eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwicm9sZXMiOlsiUk9MRV9BRE1JTiJdfQ.signature
+```
+- **Header**: algorithm and token type (`{"alg": "RS256", "typ": "JWT"}`).
+- **Payload**: claims (sub, roles, exp, iat, etc.) — **NOT encrypted**, just Base64 encoded. Never put sensitive data here.
+- **Signature**: HMAC (symmetric) or RSA/ECDSA (asymmetric) signature over header+payload. Verifies authenticity.
+
+**Q2. What is the difference between symmetric and asymmetric JWT signing?**
+| | Symmetric (HS256) | Asymmetric (RS256/ES256) |
+|---|---|---|
+| Key | Single shared secret | Private key (sign) + Public key (verify) |
+| Who can verify | Anyone with the secret | Anyone with the public key |
+| Use case | Single service (auth + resource in one) | Microservices (auth server publishes public key via JWKS) |
+| Security | Secret must never leak | Private key secured at auth server; public key freely shared |
+
+**Q3. What is PKCE and why is it used in OAuth2?**
+- **Proof Key for Code Exchange** — prevents authorization code interception attacks in public clients (SPAs, mobile apps).
+- Client generates a random `code_verifier`, hashes it as `code_challenge`, and sends it with the auth request.
+- On token exchange, the original `code_verifier` is verified against the `code_challenge` stored at the auth server.
+- Even if someone steals the authorization code, they can't exchange it without the `code_verifier`.
+
+**Q4. What is the difference between `@PreAuthorize` and `@Secured`?**
+```java
+@Secured("ROLE_ADMIN")  // simple role check; only supports role strings
+public void adminOnly() { }
+
+@PreAuthorize("hasRole('ADMIN')")  // SpEL expression; supports complex logic
+public void adminOnly2() { }
+
+@PreAuthorize("hasRole('ADMIN') and #userId == authentication.principal.id")
+public void ownData(Long userId) { }  // can reference method params via SpEL
+
+@PostAuthorize("returnObject.owner == authentication.name")
+public Resource getResource() { }  // checked AFTER method runs (for filtering returns)
+```
+- Prefer `@PreAuthorize` — more powerful, supports SpEL.
+- Requires `@EnableMethodSecurity` (Spring Boot 3+) or `@EnableGlobalMethodSecurity` (older).
+
+**Q5. What is CSRF and when is it relevant?**
+- **Cross-Site Request Forgery**: attacker tricks a logged-in user's browser into making unintended requests to your app (using the user's cookies/session).
+- Spring Security enables CSRF protection by default for stateful (session-based) apps.
+- For **stateless REST APIs** using JWTs (no cookies/sessions), CSRF is not relevant — safe to disable:
+```java
+http.csrf(csrf -> csrf.disable())  // OK for stateless JWT APIs
+```
+
+**Q6. What is the `SecurityContextHolder` and `SecurityContext`?**
+```java
+// Spring Security stores the current user's authentication here
+Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+String username = auth.getName();
+Collection<? extends GrantedAuthority> roles = auth.getAuthorities();
+Object principal = auth.getPrincipal();  // usually UserDetails
+
+// Thread-local by default — each thread has its own SecurityContext
+// In reactive apps, use ReactiveSecurityContextHolder
+```
+
+**Q7. What is the difference between `access_token` and `refresh_token`?**
+- **Access token**: short-lived (15min-1hr), sent with every API request, stateless (JWT).
+- **Refresh token**: long-lived (days-weeks), stored securely, used to get new access tokens without re-login.
+- Access tokens expire quickly to limit damage if leaked. Refresh tokens can be revoked server-side.
+
+**Q8. How do you secure passwords in Spring Security?**
+```java
+// Never store plain text passwords!
+// Use BCryptPasswordEncoder (recommended — adaptive cost factor)
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder(12);  // cost factor 12 = slow = harder to brute force
+}
+
+// Usage
+String encoded = passwordEncoder.encode("rawPassword");   // on registration
+passwordEncoder.matches("rawPassword", encodedFromDB);    // on login
+// BCrypt hashes include salt automatically — no separate salt storage needed
+```
+
+**Q9. What happens in the Spring Security filter chain for a JWT request?**
+1. Request arrives → `SecurityContextPersistenceFilter` (check existing context).
+2. `JwtAuthenticationFilter` (custom or Spring's) → extracts token from `Authorization: Bearer ...`.
+3. Validates JWT signature using public key (from JWK Set URI).
+4. Checks expiry (`exp` claim).
+5. Creates `UsernamePasswordAuthenticationToken` with claims → sets in `SecurityContextHolder`.
+6. `FilterSecurityInterceptor` → checks if authenticated user has required role for the endpoint.
+7. Proceeds to Controller if authorized.
+
+**Q10. What is the `UserDetailsService` interface?**
+```java
+// Spring Security calls this during authentication to load user details
+public interface UserDetailsService {
+    UserDetails loadUserByUsername(String username) throws UsernameNotFoundException;
+}
+
+// Custom implementation
+@Service
+public class CustomUserDetailsService implements UserDetailsService {
+    @Autowired
+    private UserRepository userRepo;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepo.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        return org.springframework.security.core.userdetails.User
+            .withUsername(user.getUsername())
+            .password(user.getPassword())  // should be BCrypt-encoded
+            .roles(user.getRoles().toArray(new String[0]))
+            .build();
+    }
+}
+```

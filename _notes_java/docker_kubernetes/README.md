@@ -312,3 +312,109 @@ spec:
 5. Write Kubernetes K8s manifests (`Deployment`, `Service`, etc.) replacing the `image:` attribute with your newly pushed image.
 6. Run `kubectl apply -f .` to apply your configurations to the cluster.
 7. Kubernetes downloads the image, starts the Pods on different machines, connects them to the Service, and ensures your application runs robustly and scales seamlessly based on traffic.
+
+---
+
+## Interview Questions — Docker & Kubernetes
+
+**Q1. What is the difference between a Docker image and a container?**
+- **Image**: read-only blueprint (like a class). Built from a `Dockerfile`. Stored in a registry.
+- **Container**: a running instance of an image (like an object). Has its own filesystem, process, network namespace. Isolated from host and other containers.
+
+**Q2. What is a Dockerfile? What are the key instructions?**
+```dockerfile
+FROM openjdk:17-slim          # base image
+WORKDIR /app                  # set working directory
+COPY target/app.jar app.jar   # copy artifact
+EXPOSE 8080                   # document port (doesn't publish)
+ENV SPRING_PROFILES_ACTIVE=prod  # environment variable
+ENTRYPOINT ["java","-jar","app.jar"]  # run command
+
+# Key instructions: FROM, RUN, COPY, ADD, ENV, EXPOSE, WORKDIR, CMD, ENTRYPOINT
+# RUN: executes during build (install dependencies)
+# CMD: default command (can be overridden at runtime)
+# ENTRYPOINT: non-overridable entry point (best for apps)
+```
+
+**Q3. What is the difference between `CMD` and `ENTRYPOINT`?**
+- `CMD`: default command, can be overridden with `docker run image <new-cmd>`.
+- `ENTRYPOINT`: always runs — provides the fixed executable. `CMD` becomes default arguments to it.
+```dockerfile
+ENTRYPOINT ["java", "-jar", "app.jar"]  # fixed
+CMD ["--spring.profiles.active=dev"]     # default arg, can override
+
+docker run myapp --spring.profiles.active=prod  # overrides CMD, not ENTRYPOINT
+```
+
+**Q4. What is the difference between a Pod, Deployment, and Service in Kubernetes?**
+- **Pod**: smallest unit. One or more containers sharing network/storage. Ephemeral (can die).
+- **Deployment**: manages Pods — desired state, rolling updates, rollbacks, scaling.
+- **Service**: stable network endpoint for a set of Pods. Load balances traffic. Types: ClusterIP, NodePort, LoadBalancer.
+
+**Q5. What are the types of Kubernetes Services?**
+| Type | Accessible From | Use Case |
+|---|---|---|
+| `ClusterIP` (default) | Only within the cluster | Internal service-to-service |
+| `NodePort` | Outside cluster via `<NodeIP>:<Port>` | Dev/testing, basic external access |
+| `LoadBalancer` | Public IP via cloud provider LB | Production external access |
+| `ExternalName` | DNS alias to external service | Connecting to external databases |
+
+**Q6. What is a ConfigMap vs Secret in Kubernetes?**
+```yaml
+# ConfigMap — non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_ENV: production
+  LOG_LEVEL: INFO
+
+# Secret — sensitive data (base64 encoded)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque
+data:
+  DB_PASSWORD: cGFzc3dvcmQ=  # base64("password")
+```
+- Secrets are base64 encoded (not encrypted by default — use encryption at rest or Vault for production).
+
+**Q7. What is a rolling update in Kubernetes?**
+- Default update strategy: replace Pods one at a time with the new version.
+- Zero-downtime: old Pods serve traffic until new Pods are healthy.
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1        # can have 1 extra pod during update
+    maxUnavailable: 0  # no pod can be unavailable during update
+```
+- `kubectl rollout undo deployment/myapp` — rollback to previous version.
+
+**Q8. What is the difference between `docker-compose` and Kubernetes?**
+| | Docker Compose | Kubernetes |
+|---|---|---|
+| Scope | Single machine | Multi-node cluster |
+| Use case | Development / local testing | Production at scale |
+| Scaling | Manual (`--scale`) | Automatic (HPA) |
+| Self-healing | No | Yes (restarts failed pods) |
+| Load balancing | Basic | Built-in Service |
+| Complexity | Simple | Complex |
+
+**Q9. What is a Persistent Volume (PV) and Persistent Volume Claim (PVC)?**
+- **PV**: actual storage provisioned by admin (NFS, AWS EBS, Azure Disk).
+- **PVC**: request for storage by a Pod (size, access mode). K8s binds PVC to a matching PV.
+- Decouples storage administration from application deployment.
+- Pods using PVC retain data even when Pod restarts.
+
+**Q10. How does a Spring Boot app get containerized and deployed to Kubernetes?**
+1. Build JAR: `mvn package`
+2. Write `Dockerfile`, build image: `docker build -t myapp:1.0 .`
+3. Push to registry: `docker push myregistry/myapp:1.0`
+4. Create K8s `Deployment` YAML with `image: myregistry/myapp:1.0`
+5. Create K8s `Service` YAML for networking
+6. Create `ConfigMap` for properties, `Secret` for passwords
+7. Apply: `kubectl apply -f k8s/`
+8. Check: `kubectl get pods`, `kubectl logs <pod-name>`

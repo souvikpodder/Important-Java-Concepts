@@ -125,3 +125,133 @@ The internal mechanics of `HashMap` rely entirely on these two methods. That is 
 | **`remove()`**| $O(1)$ | $O(n)$ | $O(\log n)$ |
 
 *The worst-case scenario occurs when there are massive hash collisions, placing all elements in the same bucket.*
+
+---
+
+## 8. Key Thresholds — Quick Reference
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `DEFAULT_INITIAL_CAPACITY` | 16 | Initial number of buckets |
+| `DEFAULT_LOAD_FACTOR` | 0.75 | Fill ratio before resize |
+| `TREEIFY_THRESHOLD` | 8 | Bucket size triggering linked list → tree |
+| `UNTREEIFY_THRESHOLD` | 6 | Bucket size triggering tree → linked list (on remove) |
+| `MIN_TREEIFY_CAPACITY` | 64 | Min table size for treeification to happen |
+
+---
+
+## 9. HashMap vs ConcurrentHashMap vs Hashtable
+
+| Feature | HashMap | ConcurrentHashMap | Hashtable |
+|---|---|---|---|
+| Thread-safe | No | Yes | Yes |
+| Null key | 1 allowed | Not allowed | Not allowed |
+| Null value | Multiple allowed | Not allowed | Not allowed |
+| Lock mechanism | None | Per-bucket (Java 8+) | Whole map |
+| Performance | Best (single thread) | Best (multi-thread) | Slowest |
+| Iterator | Fail-fast | Fail-safe (weakly consistent) | Fail-safe |
+| Inheritance | AbstractMap | AbstractMap | Dictionary |
+| Since | Java 1.2 | Java 1.5 | Java 1.0 (legacy) |
+
+---
+
+## 10. How `ConcurrentHashMap` Achieves Thread Safety (Java 8)
+
+- Uses **CAS (Compare-And-Swap)** operations for empty bucket insertions.
+- Uses `synchronized` block on the individual **bucket head node** for collision chains (not the whole map).
+- Multiple threads can write to **different buckets simultaneously** — this is the key advantage.
+- `size()` uses a `LongAdder`-like mechanism to avoid lock contention.
+
+---
+
+## Interview Questions — HashMap Internal Working
+
+**Q1. What is a Hash Collision and how does HashMap handle it?**
+- A collision occurs when two different keys produce the same bucket index (`(n-1) & hash`).
+- Java 8+ handles it via a **linked list** (up to 8 nodes) that converts to a **Red-Black Tree** beyond 8 nodes.
+- Resolution uses `equals()` to find the correct key within the bucket.
+
+**Q2. Why is the default initial capacity 16 and not some other number?**
+- It must be a **power of 2** so the bucket index calculation `(n-1) & hash` works correctly as a fast modulo replacement.
+- 16 is a sweet spot — small enough to not waste memory, large enough to avoid immediate resizing for typical use.
+
+**Q3. Why is the load factor 0.75 by default?**
+- It balances space and time efficiency.
+- A lower load factor (e.g., 0.5) reduces collisions but wastes memory (map resizes too early).
+- A higher load factor (e.g., 1.0) saves memory but increases collisions → slower lookups.
+- 0.75 is a mathematically derived value from Poisson distribution that provides optimal performance.
+
+**Q4. Walk me through what happens when you call `map.put("key", "value")` on a HashMap.**
+1. `hash("key")` → computes `hashCode()` XOR'd with itself right-shifted 16 bits.
+2. `index = (16-1) & hash` → finds which bucket (0..15).
+3. If bucket is empty → create `Node` and place it.
+4. If bucket is not empty → traverse list/tree:
+   - If matching key found → update value.
+   - Else → append new `Node` at end.
+5. If bucket's linked list length reaches 8 AND total capacity ≥ 64 → convert to Red-Black Tree.
+6. If `++size > threshold (12)` → `resize()` doubles capacity to 32, re-hashes all entries.
+
+**Q5. Why does HashMap not guarantee ordering? Can this change across JVM runs?**
+- Bucket index depends on `hashCode()` and current capacity. Since capacity changes on resize, order changes.
+- `String.hashCode()` is deterministic within a JVM run but was historically randomized between runs (for security) — though Java's String hashCode is now stable.
+- For consistent iteration order: use `LinkedHashMap` (insertion order) or `TreeMap` (sorted order).
+
+**Q6. What happens if you use an object as a key, then mutate the object?**
+```java
+class MutableKey {
+    int val;
+    int hashCode() { return val; }
+    boolean equals(Object o) { ... }
+}
+Map<MutableKey, String> map = new HashMap<>();
+MutableKey k = new MutableKey();
+k.val = 1;
+map.put(k, "one");    // stored at bucket (n-1) & 1
+
+k.val = 2;            // NOW MUTATED
+map.get(k);           // looks in bucket (n-1) & 2 — NOT FOUND!
+map.containsKey(k);   // false — the entry is now "lost"
+```
+- **Always use immutable objects as map keys.**
+
+**Q7. What is the difference between `get()` returning `null` vs key not existing?**
+```java
+map.put("a", null);       // key "a" exists, value is null
+map.get("a");             // returns null
+map.containsKey("a");     // true
+
+map.get("b");             // returns null
+map.containsKey("b");     // false
+
+// To distinguish:
+if (map.containsKey(key)) { ... }  // or use getOrDefault()
+```
+
+**Q8. How does HashMap behave when you insert the same key twice?**
+- It **replaces** the old value with the new value and returns the old value.
+- The map size does NOT increase.
+```java
+map.put("a", 1);  // size=1
+map.put("a", 2);  // size still 1, value updated to 2
+Integer old = map.put("a", 3);  // returns 2 (previous value)
+```
+
+**Q9. When would you prefer `LinkedHashMap` over `HashMap`?**
+- When you need predictable iteration order (e.g., building a JSON object, printing a config).
+- When implementing an **LRU Cache** — use access-order mode with `removeEldestEntry()`.
+- Slight performance overhead due to maintaining the doubly-linked list.
+
+**Q10. What is `HashMap.compute()` and how is it different from `put()`?**
+```java
+// put() — always sets the value
+map.put("count", map.getOrDefault("count", 0) + 1);  // NOT atomic
+
+// compute() — atomic read-modify-write
+map.compute("count", (k, v) -> v == null ? 1 : v + 1);  // safer
+
+// computeIfAbsent() — only if key is absent
+map.computeIfAbsent("list", k -> new ArrayList<>()).add("item");
+
+// merge() — most readable for counters
+map.merge("count", 1, Integer::sum);  // add 1 to existing, or put 1 if absent
+```

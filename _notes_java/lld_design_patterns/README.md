@@ -232,3 +232,216 @@ class LightOnCommand implements Command {
 ### D. Iterator Pattern
 **Purpose:** Provides a way to access the elements of an aggregate object (like a list or tree) sequentially without exposing its underlying representation.
 **Use Case:** Java's `Iterator` interface, which lets you loop through a standard `ArrayList`, a linked `LinkedList`, or a `HashSet` using the exact same `hasNext()` and `next()` syntax, entirely hiding how the iteration is actually happening under the hood.
+
+---
+
+## Additional Patterns with Code Examples
+
+### Singleton — Thread-Safe Double-Checked Locking
+```java
+public class DatabaseConnection {
+    private static volatile DatabaseConnection instance;  // volatile is critical
+
+    private DatabaseConnection() {
+        System.out.println("Creating DB connection...");
+    }
+
+    public static DatabaseConnection getInstance() {
+        if (instance == null) {                    // first check (no lock)
+            synchronized (DatabaseConnection.class) {
+                if (instance == null) {            // second check (with lock)
+                    instance = new DatabaseConnection();
+                }
+            }
+        }
+        return instance;
+    }
+}
+// Enum Singleton (simplest, most robust):
+public enum DatabaseConnectionEnum {
+    INSTANCE;
+    public void connect() { /* ... */ }
+}
+```
+
+### Builder Pattern — Fluent API
+```java
+public class HttpRequest {
+    private final String url;
+    private final String method;
+    private final Map<String, String> headers;
+    private final String body;
+
+    private HttpRequest(Builder builder) {
+        this.url = builder.url;
+        this.method = builder.method;
+        this.headers = builder.headers;
+        this.body = builder.body;
+    }
+
+    public static class Builder {
+        private String url;
+        private String method = "GET";
+        private Map<String, String> headers = new HashMap<>();
+        private String body;
+
+        public Builder url(String url) { this.url = url; return this; }
+        public Builder method(String method) { this.method = method; return this; }
+        public Builder header(String key, String value) { headers.put(key, value); return this; }
+        public Builder body(String body) { this.body = body; return this; }
+        public HttpRequest build() { return new HttpRequest(this); }
+    }
+}
+// Usage:
+HttpRequest request = new HttpRequest.Builder()
+    .url("https://api.example.com/users")
+    .method("POST")
+    .header("Authorization", "Bearer token")
+    .body("{\"name\":\"Alice\"}")
+    .build();
+```
+
+### Decorator Pattern — Stacking Behaviors
+```java
+interface Coffee { double getCost(); String getDescription(); }
+
+class SimpleCoffee implements Coffee {
+    public double getCost() { return 1.0; }
+    public String getDescription() { return "Coffee"; }
+}
+
+abstract class CoffeeDecorator implements Coffee {
+    protected Coffee coffee;
+    CoffeeDecorator(Coffee coffee) { this.coffee = coffee; }
+    public double getCost() { return coffee.getCost(); }
+    public String getDescription() { return coffee.getDescription(); }
+}
+
+class Milk extends CoffeeDecorator {
+    Milk(Coffee c) { super(c); }
+    public double getCost() { return super.getCost() + 0.25; }
+    public String getDescription() { return super.getDescription() + ", Milk"; }
+}
+
+class Caramel extends CoffeeDecorator {
+    Caramel(Coffee c) { super(c); }
+    public double getCost() { return super.getCost() + 0.50; }
+    public String getDescription() { return super.getDescription() + ", Caramel"; }
+}
+// Usage:
+Coffee myCoffee = new Caramel(new Milk(new SimpleCoffee()));
+System.out.println(myCoffee.getDescription()); // Coffee, Milk, Caramel
+System.out.println(myCoffee.getCost());        // 1.75
+```
+
+---
+
+## Interview Questions — Design Patterns
+
+**Q1. What is the difference between Factory Method and Abstract Factory?**
+- **Factory Method**: one method creates one type of product. Subclasses decide which concrete class to instantiate.
+- **Abstract Factory**: creates families of related products. A factory of factories.
+```java
+// Factory Method
+interface Shape { void draw(); }
+abstract class ShapeFactory {
+    abstract Shape createShape();  // subclasses override this
+}
+class CircleFactory extends ShapeFactory {
+    Shape createShape() { return new Circle(); }
+}
+
+// Abstract Factory — creates related objects
+interface UIFactory {
+    Button createButton();
+    TextField createTextField();
+}
+class WindowsUIFactory implements UIFactory { ... }  // creates Windows-style UI
+class MacUIFactory implements UIFactory { ... }      // creates Mac-style UI
+```
+
+**Q2. What is the difference between Decorator and Proxy patterns?**
+- **Decorator**: adds/enhances **behavior** without changing the interface. Can be stacked multiple times. Client knows it's decorating.
+- **Proxy**: **controls access** to the real object (lazy loading, security, caching). Usually wraps once. Client typically doesn't know about the proxy.
+```java
+// Proxy — controls access
+class ProtectedService implements Service {
+    private RealService real = new RealService();
+    public void doWork(User user) {
+        if (!user.hasPermission()) throw new AccessDeniedException();
+        real.doWork(user);  // access control before delegating
+    }
+}
+```
+
+**Q3. What is the difference between Strategy and Template Method patterns?**
+- **Strategy**: algorithm is **externally** swappable via composition. Choose algorithm at runtime.
+- **Template Method**: algorithm skeleton in base class, **subclasses override** specific steps via inheritance.
+```java
+// Template Method
+abstract class DataProcessor {
+    final void process() {    // FINAL — skeleton is fixed
+        readData();
+        processData();        // abstract — subclass fills in
+        writeData();
+    }
+    abstract void processData();  // subclass varies this
+}
+
+// Strategy
+interface SortStrategy { void sort(int[] arr); }
+class Sorter {
+    private SortStrategy strategy;
+    void setStrategy(SortStrategy s) { this.strategy = s; }  // swap at runtime
+    void sort(int[] arr) { strategy.sort(arr); }
+}
+```
+
+**Q4. When would you use the Builder pattern vs the Telescoping Constructor?**
+- **Telescoping constructor**: works for up to 3-4 parameters. Becomes unreadable with many optional params.
+- **Builder**: use when you have 4+ parameters, many optional ones, or want immutable objects with readable construction.
+- `@Builder` from Lombok auto-generates builder code.
+
+**Q5. What is the Observer pattern and where is it used in Java/Spring?**
+- Defines one-to-many dependency: when subject changes, all observers are notified.
+- Java built-in: `PropertyChangeListener`, `EventListener`.
+- Spring: `ApplicationEvent` / `ApplicationEventPublisher` / `@EventListener`.
+- JavaFX/Swing: UI event listeners.
+- RxJava/Reactor: `Flux` / `Observable` are reactive implementations of Observer.
+```java
+// Spring Observer
+@Component
+class OrderService {
+    @Autowired ApplicationEventPublisher publisher;
+    void placeOrder(Order o) {
+        publisher.publishEvent(new OrderPlacedEvent(o));
+    }
+}
+@Component
+class EmailService {
+    @EventListener
+    void onOrderPlaced(OrderPlacedEvent e) { sendEmail(e.getOrder()); }
+}
+```
+
+**Q6. What is the difference between Singleton and Static class?**
+| | Singleton | Static Class |
+|---|---|---|
+| Instance | One instance, accessed via method | No instance — only static methods |
+| Inheritance | Can implement interfaces, extend classes | Cannot inherit or be inherited |
+| State | Can have instance fields | Only class-level (static) state |
+| Lazy init | Supports lazy initialization | N/A |
+| Testing | Can be mocked | Harder to mock |
+- Use Singleton when you need one instance of a complex stateful object. Use static class for utility methods with no state (like `Math`).
+
+**Q7. What design patterns are used inside the JDK?**
+- **Singleton**: `Runtime.getRuntime()`, `System.in/out`
+- **Factory Method**: `Calendar.getInstance()`, `NumberFormat.getInstance()`
+- **Builder**: `StringBuilder`, `ProcessBuilder`, `Stream.Builder`
+- **Iterator**: `Iterator` interface on all collections
+- **Decorator**: `InputStream` wrappers (`BufferedInputStream`, `DataInputStream`)
+- **Proxy**: Java Dynamic Proxies (`java.lang.reflect.Proxy`)
+- **Observer**: `java.util.EventListener`, `PropertyChangeListener`
+- **Strategy**: `Comparator`, `Runnable`, `Callable`
+- **Command**: `Runnable` (encapsulates an operation)
+- **Template Method**: `AbstractList.get()`, `HttpServlet.service()`

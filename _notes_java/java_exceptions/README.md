@@ -155,3 +155,216 @@ You can rethrow and exception by throwing same exception in catch block.
 If you are creating your own Exception that is known as custom exception or user-defined exception. Java custom exceptions are used to customize the exception according to user need.
 
 By the help of custom exception, you can have your own exception and message.
+
+## Custom Exception — Complete Example
+
+```java
+// Custom checked exception
+public class InsufficientFundsException extends Exception {
+    private double amount;
+
+    public InsufficientFundsException(double amount) {
+        super("Insufficient funds. Amount needed: " + amount);
+        this.amount = amount;
+    }
+
+    public double getAmount() { return amount; }
+}
+
+// Custom unchecked exception
+public class InvalidAccountException extends RuntimeException {
+    public InvalidAccountException(String accountId) {
+        super("Invalid account: " + accountId);
+    }
+}
+
+// Usage
+class BankAccount {
+    private double balance;
+
+    public void withdraw(double amount) throws InsufficientFundsException {
+        if (amount > balance) {
+            throw new InsufficientFundsException(amount - balance);
+        }
+        balance -= amount;
+    }
+}
+
+// Caller
+try {
+    account.withdraw(500);
+} catch (InsufficientFundsException e) {
+    System.out.println(e.getMessage());
+    System.out.println("Shortfall: " + e.getAmount());
+}
+```
+
+## Try-With-Resources (Java 7+)
+
+Automatically closes resources that implement `AutoCloseable`. Eliminates finally-block boilerplate.
+
+```java
+// Old way — verbose and error-prone
+BufferedReader br = null;
+try {
+    br = new BufferedReader(new FileReader("file.txt"));
+    String line = br.readLine();
+} catch (IOException e) {
+    e.printStackTrace();
+} finally {
+    if (br != null) { try { br.close(); } catch (IOException e) { } }
+}
+
+// New way — try-with-resources (Java 7+)
+try (BufferedReader br = new BufferedReader(new FileReader("file.txt"))) {
+    String line = br.readLine();
+} catch (IOException e) {
+    e.printStackTrace();
+}
+// br.close() is called automatically, even if exception occurs
+
+// Multiple resources
+try (Connection conn = getConnection();
+     PreparedStatement ps = conn.prepareStatement(sql);
+     ResultSet rs = ps.executeQuery()) {
+    // all three closed in REVERSE order automatically
+}
+
+// Custom AutoCloseable
+class DatabaseConnection implements AutoCloseable {
+    DatabaseConnection() { System.out.println("Connection opened"); }
+    @Override
+    public void close() { System.out.println("Connection closed"); }
+}
+```
+
+## Exception Chaining
+
+```java
+try {
+    // low-level operation
+    loadConfig("app.properties");
+} catch (IOException e) {
+    // Wrap with higher-level context, preserving original cause
+    throw new ApplicationStartupException("Failed to start app", e);
+}
+
+// Retrieve root cause
+catch (ApplicationStartupException e) {
+    Throwable rootCause = e.getCause();  // original IOException
+}
+```
+
+## Best Practices for Exception Handling
+
+```java
+// 1. Be specific — catch the most specific exception first
+try { ... }
+catch (FileNotFoundException e) { ... }  // specific first
+catch (IOException e) { ... }            // broader second
+
+// 2. Don't swallow exceptions (very bad practice)
+try { riskyOp(); }
+catch (Exception e) { }  // NEVER do this — silently ignores problems
+
+// 3. Log AND either rethrow or handle
+try { riskyOp(); }
+catch (Exception e) {
+    logger.error("Operation failed", e);
+    throw new ServiceException("Service unavailable", e);
+}
+
+// 4. Use specific exception types in method signatures
+public void readFile(String path) throws IOException { ... }
+// NOT: throws Exception (too broad)
+
+// 5. Don't use exceptions for flow control
+// BAD:
+try { return list.get(index); }
+catch (IndexOutOfBoundsException e) { return null; }
+// GOOD:
+if (index < list.size()) return list.get(index);
+return null;
+```
+
+---
+
+## Interview Questions — Exception Handling
+
+**Q1. What is the difference between checked and unchecked exceptions?**
+- **Checked**: must be declared with `throws` or caught. Compiler enforces this. Examples: `IOException`, `SQLException`, `ClassNotFoundException`.
+- **Unchecked** (RuntimeException subclasses): not enforced by compiler. Examples: `NullPointerException`, `ArrayIndexOutOfBoundsException`, `IllegalArgumentException`.
+- **Rule of thumb**: use checked when the caller can reasonably recover; use unchecked for programming errors.
+
+**Q2. Can `finally` block prevent an exception from propagating?**
+```java
+try {
+    throw new RuntimeException("original");
+} finally {
+    throw new RuntimeException("from finally");  // SWALLOWS original exception!
+}
+// Only "from finally" propagates — original is lost!
+// Avoid throwing from finally blocks.
+```
+
+**Q3. Will `finally` always execute?**
+- Yes, EXCEPT when:
+  - `System.exit()` is called.
+  - JVM crashes.
+  - The thread is forcibly killed.
+  - Infinite loop in `try` block.
+
+**Q4. What is the difference between `throw` and `throws`?**
+- `throw`: used inside a method body to **actually throw** an exception instance. `throw new IOException("message")`.
+- `throws`: used in method signature to **declare** that a method may throw a checked exception. Callers must handle or re-declare it.
+
+**Q5. What is exception chaining and why is it important?**
+- Preserving the original cause when wrapping exceptions.
+- Important for debugging: without chaining you lose the root cause. Always pass the cause: `new AppException("msg", cause)`.
+
+**Q6. Can we catch `Error` in Java?**
+- Yes, syntactically. But you generally **shouldn't**.
+- `Error` indicates JVM-level problems (`OutOfMemoryError`, `StackOverflowError`) — the program is in an unrecoverable state. Catching them gives false confidence.
+- Exception: catching `OutOfMemoryError` in a framework to log and shutdown gracefully.
+
+**Q7. What happens when an exception is thrown in a `catch` block?**
+```java
+try {
+    throw new IOException();
+} catch (IOException e) {
+    throw new RuntimeException("wrapped", e);  // propagates up
+} finally {
+    System.out.println("always runs");  // runs first
+}
+// Output: "always runs", then RuntimeException propagates
+```
+
+**Q8. What is the `StackOverflowError` and what causes it?**
+- Thrown when the call stack exceeds its limit — typically due to infinite recursion (a method calling itself with no base case).
+- It's an `Error` (not Exception) — indicates a programming bug, not a recoverable condition.
+
+**Q9. Explain `NullPointerException` — how to avoid it in modern Java?**
+```java
+// Java 8+: Use Optional
+Optional<String> name = Optional.ofNullable(user.getName());
+String upper = name.map(String::toUpperCase).orElse("Unknown");
+
+// Java 14+: Helpful NullPointerExceptions show which variable was null
+// Instead of: "NullPointerException at line 42"
+// Now prints: "Cannot read field 'name' because 'user' is null"
+
+// Best practices:
+// 1. Return empty collections, not null
+// 2. Use Optional for methods that may return no result
+// 3. Validate parameters with Objects.requireNonNull()
+Objects.requireNonNull(user, "User cannot be null");
+```
+
+**Q10. What is the difference between `Error` and `Exception`?**
+| | Error | Exception |
+|---|---|---|
+| Represents | JVM-level problem | Application-level problem |
+| Recoverable | Usually not | Usually yes |
+| Examples | OutOfMemoryError, StackOverflowError | IOException, NullPointerException |
+| Should catch? | Generally no | Yes, where appropriate |
+| Checked? | No | Can be checked or unchecked |

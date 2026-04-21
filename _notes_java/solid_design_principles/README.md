@@ -822,3 +822,123 @@ class OrderService {                              // SRP: Only handles orders
 ---
 
 > **Remember:** SOLID principles are **guidelines**, not strict rules. Apply them thoughtfully — over-engineering a simple CRUD app with SOLID patterns everywhere is just as bad as ignoring them in a complex system. Use your judgment! 🎯
+
+---
+
+## Interview Questions — SOLID Principles
+
+**Q1. Explain SOLID principles in one sentence each.**
+- **S** — A class should have only one reason to change (one job).
+- **O** — Add new features by adding new code, not changing existing code.
+- **L** — A subclass should be usable wherever its parent is used without breaking things.
+- **I** — Don't force classes to implement interface methods they don't need.
+- **D** — High-level code should depend on interfaces/abstractions, not concrete implementations.
+
+**Q2. How does Spring Boot implement SOLID principles?**
+- **SRP**: `@Service`, `@Repository`, `@Controller` separate concerns by layer.
+- **OCP**: Adding a new payment type = new `@Component` implementing `PaymentProcessor`, no existing code changes.
+- **LSP**: Any `UserRepository` (in-memory for tests, JPA for prod) is substitutable.
+- **ISP**: `CrudRepository`, `JpaRepository`, `PagingAndSortingRepository` are segregated interfaces.
+- **DIP**: `@Autowired` injects by interface type — `UserService` depends on `UserRepository` interface, not `JpaUserRepository`.
+
+**Q3. What is the Open/Closed Principle? Give a real Spring Boot example.**
+```java
+// BAD: Adding a new discount type requires modifying existing code
+public double calculateDiscount(Order order) {
+    if (order.getType().equals("PREMIUM")) return order.getTotal() * 0.1;
+    if (order.getType().equals("STUDENT")) return order.getTotal() * 0.2;
+    // Every new discount type = modify this method = violates OCP
+    return 0;
+}
+
+// GOOD: Open for extension, closed for modification
+interface DiscountStrategy {
+    double calculate(Order order);
+    boolean supports(String orderType);
+}
+
+@Component
+class PremiumDiscount implements DiscountStrategy {
+    public double calculate(Order o) { return o.getTotal() * 0.1; }
+    public boolean supports(String t) { return "PREMIUM".equals(t); }
+}
+
+@Component
+class StudentDiscount implements DiscountStrategy {
+    public double calculate(Order o) { return o.getTotal() * 0.2; }
+    public boolean supports(String t) { return "STUDENT".equals(t); }
+}
+
+@Service
+class DiscountService {
+    private final List<DiscountStrategy> strategies;  // all injected by Spring
+    DiscountService(List<DiscountStrategy> strategies) { this.strategies = strategies; }
+    
+    public double getDiscount(Order order) {
+        return strategies.stream()
+            .filter(s -> s.supports(order.getType()))
+            .findFirst()
+            .map(s -> s.calculate(order))
+            .orElse(0.0);
+        // New discount type = new @Component class, NO changes here
+    }
+}
+```
+
+**Q4. What is the Liskov Substitution Principle? Give an example of a violation.**
+```java
+// Classic violation: Square extends Rectangle
+class Rectangle {
+    protected int width, height;
+    void setWidth(int w) { this.width = w; }
+    void setHeight(int h) { this.height = h; }
+    int getArea() { return width * height; }
+}
+
+class Square extends Rectangle {
+    @Override
+    void setWidth(int w) { this.width = this.height = w; }   // VIOLATION!
+    @Override
+    void setHeight(int h) { this.width = this.height = h; }  // VIOLATION!
+}
+
+// Code that works for Rectangle BREAKS for Square:
+void printArea(Rectangle r) {
+    r.setWidth(5);
+    r.setHeight(10);
+    System.out.println(r.getArea());  // Expected: 50, but Square gives: 100!
+}
+// Fix: Don't extend. Make both implement a common Shape interface separately.
+```
+
+**Q5. How does the Single Responsibility Principle relate to microservices?**
+- SRP at the code level → one class, one responsibility.
+- SRP at the service level → **microservices architecture**: one service handles one business domain (UserService, OrderService, PaymentService).
+- A microservice that handles users AND payments AND inventory violates SRP — changes to inventory requirements affect user management code.
+
+**Q6. What is Dependency Injection and how does it support DIP?**
+- DI is the practice of passing (injecting) dependencies into an object rather than having it create them.
+- **Constructor injection** (preferred) ensures the dependency is an abstraction (interface):
+```java
+// Without DI — tight coupling
+class OrderService {
+    private MySQLOrderRepo repo = new MySQLOrderRepo();  // hardcoded concrete class
+}
+
+// With DI — DIP satisfied
+class OrderService {
+    private final OrderRepository repo;  // depends on interface
+    OrderService(OrderRepository repo) { this.repo = repo; }  // injected
+}
+// Spring injects the concrete impl at startup
+// Test injects a mock/fake
+```
+
+**Q7. What is "Code Smell" and how do SOLID principles address common smells?**
+| Code Smell | Violated Principle | Fix |
+|---|---|---|
+| God Class | SRP | Split into focused classes |
+| Shotgun Surgery | OCP | Use abstractions for extension points |
+| Refused Bequest | LSP | Refactor inheritance hierarchy |
+| Interface Pollution | ISP | Split fat interfaces |
+| Hardcoded Dependencies | DIP | Use interfaces + DI |

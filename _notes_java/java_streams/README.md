@@ -591,3 +591,131 @@ Most functional interfaces have `default` methods that allow you to chain or com
     System.out.println(formatPipeline.apply("Content")); 
     // Output: "Header: Content :Footer"
     ```
+
+---
+
+## Interview Questions — Java Streams API
+
+**Q1. What is a Stream? How is it different from a Collection?**
+| | Collection | Stream |
+|---|---|---|
+| Storage | Stores data | Does not store data |
+| Iteration | External (for loop) | Internal (pipeline) |
+| Reusability | Can iterate multiple times | Can be consumed ONCE only |
+| Modification | Can modify elements | Cannot modify source |
+| Laziness | Eager | Lazy (intermediate ops wait for terminal) |
+
+**Q2. What are intermediate vs terminal operations?**
+- **Intermediate**: return a new Stream, are **lazy** (not executed until terminal op). Examples: `filter`, `map`, `flatMap`, `sorted`, `distinct`, `limit`, `skip`, `peek`.
+- **Terminal**: consume the stream and produce a result or side-effect. Examples: `collect`, `forEach`, `reduce`, `count`, `findFirst`, `anyMatch`, `toList`.
+
+**Q3. Can a Stream be reused? What happens if you try?**
+```java
+Stream<String> stream = List.of("a", "b", "c").stream();
+stream.forEach(System.out::println);   // OK
+stream.forEach(System.out::println);   // IllegalStateException: stream has already been operated upon
+// Streams are single-use — create a new one each time
+```
+
+**Q4. What is the difference between `findFirst()` and `findAny()`?**
+- `findFirst()`: returns the first element in encounter order (deterministic, even in parallel streams).
+- `findAny()`: returns any element — in sequential streams usually the first, but in parallel streams can be any. Faster in parallel.
+
+**Q5. Explain `map()` vs `flatMap()` with an example.**
+```java
+// map(): 1-to-1 transformation
+List<String> names = List.of("Alice", "Bob");
+names.stream().map(String::length).collect(toList());  // [5, 3]
+
+// flatMap(): 1-to-many, then flattens
+List<List<Integer>> nested = List.of(List.of(1,2), List.of(3,4));
+nested.stream().flatMap(Collection::stream).collect(toList()); // [1, 2, 3, 4]
+```
+
+**Q6. How do parallel streams work? When should you use them?**
+```java
+// Sequential (default)
+list.stream().filter(...).collect(toList());
+
+// Parallel — uses ForkJoinPool.commonPool()
+list.parallelStream().filter(...).collect(toList());
+// Or:
+list.stream().parallel().filter(...).collect(toList());
+```
+- Use parallel when: large data sets, CPU-bound operations, operations are stateless and independent.
+- Avoid parallel when: small data sets (overhead > benefit), operations have shared mutable state, order matters and you use `findFirst()`.
+
+**Q7. What is the difference between `collect(Collectors.toList())` and `toList()` (Java 16+)?**
+```java
+// Java 8+: mutable list
+List<String> mutable = stream.collect(Collectors.toList());  // modifiable
+
+// Java 10+: unmodifiable list
+List<String> unmodifiable = stream.collect(Collectors.toUnmodifiableList());
+
+// Java 16+: shorthand for unmodifiable
+List<String> immutable = stream.toList();  // throws UnsupportedOperationException on modify
+```
+
+**Q8. How would you count word frequencies using Streams?**
+```java
+String text = "the quick brown fox jumps over the lazy dog the fox";
+Map<String, Long> freq = Arrays.stream(text.split(" "))
+    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+// {the=3, fox=2, quick=1, brown=1, ...}
+
+// Find top 3 most frequent words
+freq.entrySet().stream()
+    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+    .limit(3)
+    .forEach(e -> System.out.println(e.getKey() + ": " + e.getValue()));
+```
+
+**Q9. What is `Collectors.groupingBy()` vs `Collectors.partitioningBy()`?**
+```java
+List<Integer> nums = List.of(1, 2, 3, 4, 5, 6, 7, 8);
+
+// groupingBy — groups by a classifier function (multiple buckets)
+Map<Integer, List<Integer>> byRemainder = nums.stream()
+    .collect(Collectors.groupingBy(n -> n % 3));
+// {0=[3,6], 1=[1,4,7], 2=[2,5,8]}
+
+// partitioningBy — splits into exactly 2 groups: true and false
+Map<Boolean, List<Integer>> evenOdd = nums.stream()
+    .collect(Collectors.partitioningBy(n -> n % 2 == 0));
+// {false=[1,3,5,7], true=[2,4,6,8]}
+```
+
+**Q10. How does `reduce()` work? What is the identity element?**
+```java
+// reduce(identity, BinaryOperator)
+// identity: the starting value AND neutral element for the operation
+int sum = Stream.of(1,2,3,4,5).reduce(0, Integer::sum);  // 0+1+2+3+4+5=15
+int product = Stream.of(1,2,3,4,5).reduce(1, (a,b) -> a*b);  // 1*1*2*3*4*5=120
+String concat = Stream.of("a","b","c").reduce("", String::concat); // "abc"
+
+// reduce without identity — returns Optional (stream might be empty)
+Optional<Integer> max = Stream.of(3,1,4,1,5).reduce(Integer::max); // Optional[5]
+```
+
+**Q11. How do you avoid `NullPointerException` when using streams on potentially null collections?**
+```java
+// Bad — throws NPE if list is null
+list.stream().filter(...);
+
+// Safe approaches:
+Optional.ofNullable(list)
+    .orElseGet(Collections::emptyList)
+    .stream()
+    .filter(...);
+
+// Or with Objects.requireNonNullElse (Java 9+)
+Objects.requireNonNullElse(list, Collections.<String>emptyList())
+    .stream()
+    .filter(...);
+```
+
+**Q12. What is a `Spliterator` and when would you use it?**
+- `Spliterator` (Splittable Iterator) is an iterator that supports sequential and parallel traversal of Stream sources.
+- Used internally by streams to split data for parallel processing.
+- You'd implement a custom `Spliterator` when creating a custom data source for Streams.

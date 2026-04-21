@@ -129,3 +129,97 @@ If you upgrade from Java 8 direct to Java 21, the landscape looks wildly differe
 1.  **Immutability First:** Using `record` instead of mutable POJOs.
 2.  **Cleaner Code:** `var` bindings, text blocks, switch expressions, and pattern matching drastically reduce screen noise.
 3.  **Insane Scale:** Changing standard thread pools to Virtual Thread executors allows servers to easily handle millions of concurrent connections doing I/O.
+
+---
+
+## Interview Questions — Java 21 Features
+
+**Q1. What are Virtual Threads? How are they different from platform threads?**
+| | Platform Thread | Virtual Thread |
+|---|---|---|
+| Managed by | OS | JVM |
+| Stack size | ~1 MB | ~few KB |
+| Max count | ~thousands | ~millions |
+| Blocking I/O | Wastes OS thread | JVM unmounts, OS thread free |
+| Creation cost | Expensive | Very cheap |
+| Best for | CPU-bound | I/O-bound |
+
+```java
+// Old: fixed pool — 200 threads max
+ExecutorService fixed = Executors.newFixedThreadPool(200);
+
+// Java 21: virtual thread per task — scale to millions
+ExecutorService virtual = Executors.newVirtualThreadPerTaskExecutor();
+for (int i = 0; i < 1_000_000; i++) {
+    virtual.submit(() -> {
+        Thread.sleep(1000);  // does NOT block OS thread
+        return "done";
+    });
+}
+```
+
+**Q2. What is the difference between Virtual Threads and reactive programming (WebFlux)?**
+| | Virtual Threads | Reactive (WebFlux) |
+|---|---|---|
+| Code style | Imperative (familiar) | Reactive pipelines (complex) |
+| Blocking I/O | Safe — JVM handles it | Must avoid — blocks event loop |
+| Learning curve | Low | High |
+| Debugging | Normal stack traces | Complex reactive chains |
+| I/O throughput | Similar | Similar |
+- Virtual Threads: write normal blocking code, JVM makes it scalable.
+- WebFlux: write non-blocking code explicitly, more control but more complexity.
+- For most apps, **Virtual Threads + Spring MVC** is simpler and sufficient. Use WebFlux only for streaming or when full non-blocking pipelines are needed.
+
+**Q3. What is Pattern Matching for switch? How does `when` work?**
+```java
+// Pattern matching for switch (Java 21)
+Object obj = getObject();
+String result = switch (obj) {
+    case Integer i when i > 100 -> "Large number: " + i;   // guard condition
+    case Integer i              -> "Small number: " + i;
+    case String s               -> "String: " + s;
+    case null                   -> "Null value";
+    default                     -> "Other: " + obj;
+};
+// Works great with sealed classes — compiler ensures exhaustiveness
+```
+
+**Q4. What are Sequenced Collections? Why were they added?**
+- Before Java 21, getting the first/last element of a `LinkedHashSet` required verbose workarounds (`iterator().next()` for first, iterating the whole set for last).
+- `SequencedCollection` interface adds `getFirst()`, `getLast()`, `addFirst()`, `addLast()`, `removeFirst()`, `removeLast()`, and `reversed()` to all ordered collections.
+```java
+List<String> list = new ArrayList<>(List.of("a", "b", "c"));
+list.getFirst();   // "a"
+list.getLast();    // "c"
+list.reversed();   // [c, b, a] — view, not a copy
+
+LinkedHashMap<String, Integer> map = new LinkedHashMap<>();
+map.put("x", 1); map.put("y", 2); map.put("z", 3);
+map.firstEntry();  // x=1
+map.lastEntry();   // z=3
+```
+
+**Q5. What is a Record Pattern? How does it relate to Sealed classes?**
+```java
+sealed interface Animal permits Dog, Cat {}
+record Dog(String name, String breed) implements Animal {}
+record Cat(String name, boolean indoor) implements Animal {}
+
+// Record patterns deconstruct records directly in switch
+String describe(Animal animal) {
+    return switch (animal) {
+        case Dog(var name, var breed) -> name + " is a " + breed;
+        case Cat(var name, true)      -> name + " is an indoor cat";
+        case Cat(var name, false)     -> name + " is an outdoor cat";
+    };
+}
+// Sealed ensures all cases are covered — compiler validates exhaustiveness
+```
+
+**Q6. What are the key LTS releases to know for interviews?**
+| LTS Version | Key Features | Year |
+|---|---|---|
+| Java 8 | Lambdas, Streams, Optional, new Date/Time | 2014 |
+| Java 11 | `var` in lambdas, HTTP Client, String methods (`isBlank`, `strip`, `lines`) | 2018 |
+| Java 17 | Records, Sealed classes, Text Blocks, Switch Expressions, `instanceof` pattern matching | 2021 |
+| Java 21 | Virtual Threads, Sequenced Collections, Pattern Matching for switch, Record Patterns | 2023 |

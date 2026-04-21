@@ -262,3 +262,279 @@ public class ReentrantExample {
  }}
 
 
+---
+
+## `ReentrantLock` — Explicit Locking (java.util.concurrent.locks)
+
+`ReentrantLock` gives more control than `synchronized`:
+
+```java
+import java.util.concurrent.locks.ReentrantLock;
+
+class SafeCounter {
+    private int count = 0;
+    private final ReentrantLock lock = new ReentrantLock();
+
+    public void increment() {
+        lock.lock();
+        try {
+            count++;
+        } finally {
+            lock.unlock();  // ALWAYS unlock in finally block
+        }
+    }
+
+    public int getCount() { return count; }
+}
+```
+
+**ReentrantLock vs `synchronized`:**
+| Feature | synchronized | ReentrantLock |
+|---|---|---|
+| Fairness | Not fair (OS decides) | Can be fair: `new ReentrantLock(true)` |
+| Interruptible wait | No | Yes: `lockInterruptibly()` |
+| Try without blocking | No | Yes: `tryLock()`, `tryLock(timeout)` |
+| Multiple conditions | No (1 wait-set per object) | Yes: multiple `Condition` objects |
+| Read/Write split | No | Via `ReadWriteLock` |
+
+```java
+// tryLock — avoid deadlock with timeout
+if (lock.tryLock(2, TimeUnit.SECONDS)) {
+    try {
+        // do work
+    } finally {
+        lock.unlock();
+    }
+} else {
+    System.out.println("Could not acquire lock — skip or retry");
+}
+```
+
+---
+
+## `ReadWriteLock` — High-Concurrency Reads
+
+```java
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+class Cache {
+    private final Map<String, String> data = new HashMap<>();
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+    public String read(String key) {
+        rwLock.readLock().lock();     // Multiple threads can read concurrently
+        try {
+            return data.get(key);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    public void write(String key, String value) {
+        rwLock.writeLock().lock();    // Exclusive — blocks all reads and writes
+        try {
+            data.put(key, value);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+}
+// ReadWriteLock shines when reads >> writes (e.g., caches, configuration)
+```
+
+---
+
+## `Atomic` Classes (Lock-Free Thread Safety)
+
+```java
+import java.util.concurrent.atomic.*;
+
+AtomicInteger counter = new AtomicInteger(0);
+counter.incrementAndGet();    // atomic i++
+counter.decrementAndGet();    // atomic i--
+counter.addAndGet(5);         // atomic i += 5
+counter.compareAndSet(5, 10); // if current==5, set to 10 (CAS)
+counter.get();                // read current value
+
+AtomicLong longCounter = new AtomicLong(0);
+AtomicBoolean flag = new AtomicBoolean(false);
+AtomicReference<String> ref = new AtomicReference<>("initial");
+ref.compareAndSet("initial", "updated");  // atomic CAS on reference
+
+// LongAdder — better than AtomicLong for high-contention counters
+LongAdder adder = new LongAdder();
+adder.increment();
+adder.add(5);
+long total = adder.sum();
+```
+
+**Why atomic classes?** They use **CAS (Compare-And-Swap)** CPU instructions — no locking needed, no context switching → faster than synchronized for simple operations.
+
+---
+
+## `Condition` — Advanced Wait/Notify with ReentrantLock
+
+```java
+import java.util.concurrent.locks.*;
+
+class BoundedBuffer<T> {
+    private final Queue<T> queue = new LinkedList<>();
+    private final int maxSize;
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition notFull = lock.newCondition();
+    private final Condition notEmpty = lock.newCondition();
+
+    BoundedBuffer(int maxSize) { this.maxSize = maxSize; }
+
+    public void put(T item) throws InterruptedException {
+        lock.lock();
+        try {
+            while (queue.size() == maxSize) notFull.await();  // wait if full
+            queue.offer(item);
+            notEmpty.signal();  // wake up a consumer
+        } finally { lock.unlock(); }
+    }
+
+    public T take() throws InterruptedException {
+        lock.lock();
+        try {
+            while (queue.isEmpty()) notEmpty.await();  // wait if empty
+            T item = queue.poll();
+            notFull.signal();   // wake up a producer
+            return item;
+        } finally { lock.unlock(); }
+    }
+}
+// Advantage over wait/notify: separate conditions (notFull, notEmpty)
+// → targeted signaling instead of waking everyone up
+```
+
+---
+
+## `Semaphore` — Limit Concurrent Access
+
+```java
+import java.util.concurrent.Semaphore;
+
+// Allow max 3 concurrent database connections
+Semaphore semaphore = new Semaphore(3);
+
+class DatabaseWorker implements Runnable {
+    @Override
+    public void run() {
+        try {
+            semaphore.acquire();        // acquire a permit (blocks if 0)
+            System.out.println("Working: " + Thread.currentThread().getName());
+            Thread.sleep(2000);         // simulated DB work
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            semaphore.release();        // release permit
+        }
+    }
+}
+```
+
+---
+
+## Interview Questions — Synchronization
+
+**Q1. What is the difference between `wait()` and `sleep()`?**
+| | `wait()` | `sleep()` |
+|---|---|---|
+| Lock | Releases the lock | Holds the lock |
+| Class | Object | Thread |
+| Static? | No | Yes |
+| Wake up | `notify()` / `notifyAll()` | After timeout |
+| Context | Must be in `synchronized` | Can be anywhere |
+
+**Q2. Why are `wait()`, `notify()`, `notifyAll()` in `Object` and not in `Thread`?**
+- Because locks are per-object (every object has a monitor), not per-thread.
+- Any object can be a lock. `wait()` releases the lock on the **object** it's called on. So the method belongs to `Object`.
+
+**Q3. What is a livelock? How is it different from deadlock?**
+- **Deadlock**: threads are stuck, not doing anything.
+- **Livelock**: threads are active (not stuck), but keep responding to each other and making no progress.
+```
+// Example: two people in a corridor both stepping the same direction to let the other pass
+Thread A: detects conflict → backs off → tries again
+Thread B: detects conflict → backs off → tries again
+// Both keep backing off and retrying forever
+```
+- Fix: add randomized backoff timing.
+
+**Q4. What is a starvation?**
+- A thread is perpetually denied access to a resource because other threads keep acquiring it first.
+- Example: low-priority thread waiting while high-priority threads always run first.
+- Fix: use fair locks (`new ReentrantLock(true)`).
+
+**Q5. When should you use `notifyAll()` instead of `notify()`?**
+- Use `notify()`: when all waiting threads are **identical** in what they're waiting for (one wake-up is enough).
+- Use `notifyAll()`: when waiting threads have **different conditions** — if only one is woken but it's not the right one, progress is missed.
+- In most production code, prefer `notifyAll()` for correctness (less risk of missed signals).
+
+**Q6. What is double-checked locking for Singleton?**
+```java
+class Singleton {
+    private static volatile Singleton instance;  // volatile is REQUIRED
+
+    private Singleton() {}
+
+    public static Singleton getInstance() {
+        if (instance == null) {                  // first check (no lock)
+            synchronized (Singleton.class) {
+                if (instance == null) {          // second check (with lock)
+                    instance = new Singleton();
+                }
+            }
+        }
+        return instance;
+    }
+}
+// volatile prevents partial-initialization visibility issues (JMM)
+// Without volatile, another thread may see a non-null but incompletely constructed instance
+```
+
+**Q7. What is `synchronized` on a static method vs an instance method?**
+- `static synchronized method()` → locks the **Class object** (`Singleton.class`) — shared across ALL instances.
+- `instance synchronized method()` → locks `this` — one lock per object instance.
+- Two threads can simultaneously run static-sync and instance-sync methods on the same object because they use **different locks**.
+
+**Q8. What is CAS (Compare-And-Swap) and how does it differ from locking?**
+- CAS is a hardware-level atomic instruction: `if (current value == expected) { set to new value; return true } else { return false }`.
+- **Locking**: blocking — thread waits if lock is taken (context switch = expensive).
+- **CAS (lock-free)**: non-blocking — thread retries (spin) if CAS fails — no context switch → faster for low-contention scenarios.
+- Java's `AtomicInteger`, `LongAdder`, `ConcurrentHashMap` use CAS internally.
+
+**Q9. Explain the producer-consumer problem and its Java solution.**
+```java
+// Solution using BlockingQueue — the cleanest approach
+BlockingQueue<Integer> queue = new LinkedBlockingQueue<>(10);
+
+// Producer
+new Thread(() -> {
+    for (int i = 0; i < 100; i++) {
+        queue.put(i);   // blocks if queue is full
+    }
+}).start();
+
+// Consumer
+new Thread(() -> {
+    while (true) {
+        Integer item = queue.take();  // blocks if queue is empty
+        process(item);
+    }
+}).start();
+```
+- `BlockingQueue` implementations: `LinkedBlockingQueue`, `ArrayBlockingQueue`, `PriorityBlockingQueue`, `SynchronousQueue`.
+
+**Q10. What is the `happens-before` relationship?**
+- A guarantee from the Java Memory Model that if action A `happens-before` action B, the effects of A are visible to B.
+- Key `happens-before` rules:
+  - A thread's `start()` happens-before any action in the started thread.
+  - All actions in a thread happen-before `join()` returns.
+  - Unlocking a monitor happens-before locking the same monitor.
+  - Write to `volatile` happens-before read of that variable.
+
+

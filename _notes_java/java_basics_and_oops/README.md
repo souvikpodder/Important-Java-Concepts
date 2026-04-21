@@ -352,6 +352,86 @@ class BankAccount {
 
 **Key Insight:** In the `BankAccount` example, you can't do `account.balance = -1000;` (encapsulation prevents misuse), and you don't need to know how `withdraw()` internally processes the transaction (abstraction hides complexity).
 
+## String, String Pool & Immutability
+
+### Why is String immutable in Java?
+- String is stored in a **String Constant Pool (SCP)** — a special memory region in the heap.
+- When you write `String s = "Hello"`, the JVM checks if `"Hello"` already exists in the pool. If yes, it reuses the same reference.
+- Immutability makes this sharing safe: multiple references can point to the same object without risk of one reference changing the value for others.
+- Immutability also makes Strings **thread-safe by default** and safe to use as HashMap keys.
+
+```java
+String s1 = "Hello";        // Goes to String Pool
+String s2 = "Hello";        // Reuses same pool object
+String s3 = new String("Hello"); // Creates a NEW object on the heap (not in pool)
+
+System.out.println(s1 == s2);      // true  (same pool reference)
+System.out.println(s1 == s3);      // false (different heap object)
+System.out.println(s1.equals(s3)); // true  (same content)
+
+// intern() forces a heap string into the pool
+String s4 = s3.intern();
+System.out.println(s1 == s4);  // true (s4 now points to pool)
+```
+
+### String vs StringBuilder vs StringBuffer
+
+| | String | StringBuilder | StringBuffer |
+|---|---|---|---|
+| Mutability | Immutable | Mutable | Mutable |
+| Thread-safe | Yes (by nature) | No | Yes (synchronized) |
+| Performance | Slow (for concat) | Fast | Slower than StringBuilder |
+| Use when | Fixed value | Single-thread concat | Multi-thread concat |
+
+```java
+// String concatenation in loop — BAD (creates many objects)
+String result = "";
+for (int i = 0; i < 1000; i++) result += i; // 1000 new String objects!
+
+// StringBuilder — GOOD
+StringBuilder sb = new StringBuilder();
+for (int i = 0; i < 1000; i++) sb.append(i); // Only 1 object
+String result2 = sb.toString();
+```
+
+## equals() and hashCode() Contract
+
+This is one of the most important contracts in Java, critical for correct behavior in HashMap/HashSet.
+
+**The Contract:**
+1. If `a.equals(b)` is `true`, then `a.hashCode() == b.hashCode()` MUST be `true`.
+2. If `a.hashCode() == b.hashCode()`, `a.equals(b)` MAY or MAY NOT be `true` (collision).
+
+```java
+class Employee {
+    int id;
+    String name;
+
+    // MUST override both together
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Employee)) return false;
+        Employee e = (Employee) o;
+        return id == e.id && Objects.equals(name, e.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name);  // Same fields as equals()
+    }
+}
+
+// What happens if you only override equals() but NOT hashCode():
+Set<Employee> set = new HashSet<>();
+Employee e1 = new Employee(1, "Alice");
+set.add(e1);
+Employee e2 = new Employee(1, "Alice");
+System.out.println(set.contains(e2)); // FALSE! Wrong — should be true
+// Reason: e1 and e2 are equal by equals(), but different hashCodes
+// → they go to different buckets in HashSet → not found
+```
+
 ## Methods of Object Class
 The Object class is the parent class of all the classes in java by default.
 
@@ -369,3 +449,183 @@ The Object class is the parent class of all the classes in java by default.
 <tr><td>public final void wait()throws InterruptedException</td><td> causes the current thread to wait, until another thread notifies (invokes notify() or notifyAll() method).</td></tr>
 <tr><td>protected void finalize()throws Throwable</td><td> is invoked by the garbage collector before object is being garbage collected.</td></tr>
 </tbody></table>
+
+---
+
+## Additional Deep Concepts
+
+### Covariant Return Type
+A subclass can override a method and return a more specific (sub) type.
+```java
+class Animal {
+    Animal create() { return new Animal(); }
+}
+class Dog extends Animal {
+    @Override
+    Dog create() { return new Dog(); }  // Covariant — Dog is a subtype of Animal
+}
+```
+
+### Constructor Chaining
+```java
+class Person {
+    String name;
+    int age;
+
+    Person() { this("Unknown", 0); }            // calls 2-arg constructor
+    Person(String name) { this(name, 0); }       // calls 2-arg constructor
+    Person(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+}
+// super() call: calls parent constructor — must be first statement
+class Student extends Person {
+    String school;
+    Student(String name, int age, String school) {
+        super(name, age);        // must be FIRST
+        this.school = school;
+    }
+}
+```
+
+### Static vs Instance Members
+```java
+class Counter {
+    static int count = 0;  // shared across ALL instances
+    int id;                // unique per instance
+
+    Counter() {
+        count++;           // shared counter
+        id = count;        // unique id
+    }
+}
+Counter c1 = new Counter();  // count=1, c1.id=1
+Counter c2 = new Counter();  // count=2, c2.id=2
+Counter c3 = new Counter();  // count=3, c3.id=3
+```
+
+### `final` keyword — 3 uses
+```java
+final int MAX = 100;          // final variable: cannot reassign
+final class Immutable { }     // final class: cannot extend (e.g., String)
+final void doSomething() { }  // final method: cannot override
+```
+
+### `instanceof` Pattern Matching (Java 16+)
+```java
+// Old way
+if (obj instanceof String) {
+    String s = (String) obj;
+    System.out.println(s.length());
+}
+
+// New way — pattern matching
+if (obj instanceof String s) {
+    System.out.println(s.length());  // s is already cast
+}
+```
+
+---
+
+## Interview Questions — Java OOPs & Fundamentals
+
+**Q1. What is the difference between `==` and `.equals()`?**
+- `==` checks **reference equality** (same memory address).
+- `.equals()` checks **logical equality** (content, as defined by the class).
+- For primitives, `==` compares values. For objects, always use `.equals()` unless you intentionally want reference comparison.
+
+**Q2. Can we override a `static` method? What is method hiding?**
+- No. Static methods are resolved at **compile time** based on the reference type, not at runtime (no dynamic dispatch).
+- If a subclass defines a static method with the same signature, it **hides** the parent's method — it doesn't override it.
+```java
+class Parent {
+    static void show() { System.out.println("Parent"); }
+}
+class Child extends Parent {
+    static void show() { System.out.println("Child"); }  // hiding
+}
+Parent p = new Child();
+p.show();  // "Parent" — resolved by reference type, not object type
+```
+
+**Q3. Why can't we instantiate an abstract class?**
+- An abstract class may have abstract methods with no body. Instantiating it would create an object with undefined behavior. The compiler enforces this rule.
+
+**Q4. What is the diamond problem and how does Java solve it?**
+- When a class inherits from two interfaces that both have a default method with the same signature, it's ambiguous which to use.
+- Java requires the implementing class to **explicitly override** the method and choose (or provide a new implementation).
+```java
+interface A { default void greet() { System.out.println("A"); } }
+interface B { default void greet() { System.out.println("B"); } }
+class C implements A, B {
+    @Override
+    public void greet() { A.super.greet(); }  // explicitly pick A's version
+}
+```
+
+**Q5. What is the difference between Composition and Inheritance? When to prefer which?**
+- **Inheritance** ("is-a"): `Dog extends Animal` — use when the subclass truly IS a type of the parent.
+- **Composition** ("has-a"): `Car has an Engine` — use when you want to reuse behavior without creating a tight coupling.
+- **Prefer composition over inheritance** (Effective Java): it's more flexible, avoids fragile base class problems, and is easier to test.
+
+**Q6. Can a constructor be `private`? What's the use case?**
+- Yes. A private constructor prevents external instantiation.
+- Use cases: **Singleton pattern**, **utility classes** (like `Math`, `Collections`), **factory methods**.
+```java
+class Singleton {
+    private static Singleton instance;
+    private Singleton() { }  // private constructor
+    public static Singleton getInstance() {
+        if (instance == null) instance = new Singleton();
+        return instance;
+    }
+}
+```
+
+**Q7. What happens if `hashCode()` always returns the same value (e.g., return 42)?**
+- It's technically valid (doesn't break the contract).
+- But it causes catastrophic performance: all keys hash to the same bucket → the HashMap becomes a linked list → O(n) lookup instead of O(1).
+
+**Q8. Explain the difference between shallow copy and deep copy.**
+```java
+// Shallow copy: copies references, not underlying objects
+class Team {
+    List<String> members;
+    Team(List<String> members) { this.members = members; }
+    Team shallowCopy() { return new Team(this.members); } // same list ref!
+}
+
+// Deep copy: copies everything recursively
+Team deepCopy() { return new Team(new ArrayList<>(this.members)); }
+
+// With clone(): Object.clone() does a shallow copy by default
+```
+
+**Q9. What is the difference between an interface and an abstract class? When to use which?**
+- Use **interface** when: you want to define a contract (what a class CAN do), multiple inheritance is needed, or you have unrelated classes sharing behavior.
+- Use **abstract class** when: you want shared state (fields) or common implementation, and classes share an "is-a" relationship.
+- Rule of thumb: interfaces define *capabilities* (`Flyable`, `Serializable`), abstract classes define *types* (`Animal`, `Shape`).
+
+**Q10. What is polymorphism and how does Java implement it?**
+- **Compile-time polymorphism** = method overloading (resolved by compiler based on method signature).
+- **Runtime polymorphism** = method overriding + dynamic method dispatch (JVM decides which method to call based on actual object type at runtime).
+```java
+Animal a = new Dog();  // reference is Animal, object is Dog
+a.sound();  // calls Dog's sound(), not Animal's — runtime dispatch
+```
+
+**Q11. Explain `this` and `super` keywords.**
+- `this` refers to the **current object** instance. Used to call current class constructor (`this()`), access current class fields/methods.
+- `super` refers to the **parent class**. Used to call parent constructor (`super()`), access parent's overridden method (`super.method()`).
+- Both `this()` and `super()` must be the **first statement** in a constructor and cannot be used together.
+
+**Q12. What is the significance of the `transient` keyword?**
+- Marks a field to be excluded from serialization.
+- When an object is serialized, `transient` fields are not written to the byte stream and are reset to their default values upon deserialization.
+```java
+class User implements Serializable {
+    String username;
+    transient String password;  // won't be serialized — security!
+}
+```

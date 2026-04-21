@@ -927,3 +927,182 @@ All legacy classes were re-engineered to support generic in JDK5.
 Legacy = heritage of old java version.
 
 Legacy classes and interfaces - Enumeration, Vector, Stack, Dictionary, HashTable, Properties...
+
+---
+
+## Concurrent Collections (Thread-Safe)
+
+Regular collections are NOT thread-safe. Use these in multi-threaded environments:
+
+### ConcurrentHashMap
+```java
+import java.util.concurrent.ConcurrentHashMap;
+
+// Thread-safe, high-performance alternative to Hashtable/synchronizedMap
+ConcurrentHashMap<String, Integer> map = new ConcurrentHashMap<>();
+
+// Thread-safe operations
+map.put("a", 1);
+map.putIfAbsent("b", 2);     // atomic
+map.computeIfAbsent("c", k -> 3);  // atomic
+map.getOrDefault("d", 0);
+
+// Atomic increment — safe across threads
+map.merge("a", 1, Integer::sum);
+```
+
+**How ConcurrentHashMap differs from HashMap and Hashtable:**
+- **HashMap**: Not thread-safe. Race conditions in multi-threaded use.
+- **Hashtable**: Thread-safe but uses a single lock on the whole map → slow.
+- **ConcurrentHashMap**: Thread-safe and fast — uses **segment-level locking** (Java 7) or **CAS + synchronized per bucket** (Java 8+). Allows concurrent reads without locking.
+
+### CopyOnWriteArrayList
+```java
+import java.util.concurrent.CopyOnWriteArrayList;
+
+// On every write (add/set/remove), creates a FRESH COPY of the array
+CopyOnWriteArrayList<String> list = new CopyOnWriteArrayList<>();
+list.add("a");
+list.add("b");
+
+// Safe to iterate while another thread modifies
+for (String s : list) {
+    list.add("c");  // Won't throw ConcurrentModificationException
+}
+```
+**Use when:** Reads are far more frequent than writes (e.g., event listener lists).
+
+---
+
+## Fail-Fast vs Fail-Safe Iterators
+
+### Fail-Fast (ArrayList, HashMap, HashSet)
+- Throws `ConcurrentModificationException` if the collection is modified while iterating (outside of iterator's own `remove()`).
+- Uses an internal `modCount` to detect structural changes.
+
+```java
+List<String> list = new ArrayList<>(List.of("a", "b", "c"));
+for (String s : list) {
+    if (s.equals("b")) list.remove(s);  // ConcurrentModificationException!
+}
+
+// Safe way to remove while iterating:
+Iterator<String> it = list.iterator();
+while (it.hasNext()) {
+    if (it.next().equals("b")) it.remove();  // Use iterator's remove()
+}
+// Or Java 8+:
+list.removeIf(s -> s.equals("b"));
+```
+
+### Fail-Safe (ConcurrentHashMap, CopyOnWriteArrayList)
+- Works on a snapshot of the collection — modifications don't affect ongoing iteration.
+- Does NOT throw `ConcurrentModificationException`.
+- May not reflect the latest state of the collection.
+
+---
+
+## Collections Utility Class — Key Methods
+
+```java
+List<Integer> nums = new ArrayList<>(Arrays.asList(3, 1, 4, 1, 5, 9, 2, 6));
+
+Collections.sort(nums);                      // [1, 1, 2, 3, 4, 5, 6, 9]
+Collections.sort(nums, Comparator.reverseOrder()); // descending
+Collections.reverse(nums);                   // reverse order
+Collections.shuffle(nums);                   // random shuffle
+Collections.min(nums);                       // smallest
+Collections.max(nums);                       // largest
+Collections.frequency(nums, 1);             // count occurrences of 1
+Collections.binarySearch(nums, 4);          // index (list must be sorted)
+Collections.fill(nums, 0);                  // fill all with 0
+Collections.nCopies(5, "hello");            // [hello, hello, hello, hello, hello]
+Collections.unmodifiableList(nums);         // immutable wrapper
+Collections.synchronizedList(nums);         // thread-safe wrapper
+Collections.disjoint(list1, list2);         // true if no common elements
+Collections.swap(nums, 0, 3);              // swap elements at indexes 0 and 3
+```
+
+---
+
+## Interview Questions — Collections Framework
+
+**Q1. What is the difference between `ArrayList` and `LinkedList`? When to use which?**
+- **ArrayList**: backed by a dynamic array. O(1) random access, O(n) insert/delete in middle.
+- **LinkedList**: doubly-linked list. O(n) random access, O(1) insert/delete at head/tail.
+- Use `ArrayList` for frequent reads; `LinkedList` for frequent insertions/deletions at the front.
+
+**Q2. How does `HashSet` ensure uniqueness?**
+- Internally backed by a `HashMap` where elements are keys with a dummy value.
+- When you `add(element)`, it calls `hashCode()` to find the bucket, then `equals()` to check for existing duplicate. If duplicate found, add is rejected.
+
+**Q3. What is the difference between `HashMap`, `LinkedHashMap`, and `TreeMap`?**
+| | HashMap | LinkedHashMap | TreeMap |
+|---|---|---|---|
+| Order | No order | Insertion order | Sorted (natural/comparator) |
+| Null key | 1 allowed | 1 allowed | NOT allowed |
+| Performance | O(1) | O(1) | O(log n) |
+| Backed by | Hash table | Hash table + linked list | Red-Black tree |
+
+**Q4. Can we use a mutable object as a HashMap key?**
+- It is **dangerous but technically possible**.
+- If the object's fields change after being used as a key, its `hashCode()` will change, making it **impossible to retrieve the entry** (JVM looks in wrong bucket).
+- Best practice: use **immutable objects** as keys (String, Integer, etc.)
+
+**Q5. What is the difference between `Iterator` and `ListIterator`?**
+- `Iterator`: unidirectional (forward only), works on all collections.
+- `ListIterator`: bidirectional (forward + backward), works only on `List`, supports `add()` and `set()` during iteration.
+
+**Q6. What happens when you add `null` to a `TreeSet` or `TreeMap`?**
+- Throws `NullPointerException` because TreeSet/TreeMap uses `compareTo()` for ordering, and `null` cannot be compared.
+
+**Q7. What is `ConcurrentModificationException` and how do you avoid it?**
+- Thrown when a collection is structurally modified while being iterated (by a different thread or within the loop itself).
+- Avoid by: using `Iterator.remove()`, `removeIf()`, `ConcurrentHashMap`, `CopyOnWriteArrayList`, or collecting to-remove items and removing after iteration.
+
+**Q8. What is the difference between `poll()` and `remove()` in a Queue?**
+- `poll()`: returns and removes the head, returns `null` if queue is empty.
+- `remove()`: returns and removes the head, throws `NoSuchElementException` if empty.
+- Similarly: `peek()` (null on empty) vs `element()` (throws on empty).
+
+**Q9. How would you implement an LRU cache in Java?**
+```java
+class LRUCache<K, V> extends LinkedHashMap<K, V> {
+    private final int capacity;
+
+    LRUCache(int capacity) {
+        super(capacity, 0.75f, true);  // true = access-order
+        this.capacity = capacity;
+    }
+
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+        return size() > capacity;  // remove LRU when over capacity
+    }
+}
+
+LRUCache<Integer, String> cache = new LRUCache<>(3);
+cache.put(1, "a"); cache.put(2, "b"); cache.put(3, "c");
+cache.get(1);       // Access 1 — moves to end (most recently used)
+cache.put(4, "d"); // Evicts 2 (least recently used)
+```
+
+**Q10. What is the difference between `Comparable` and `Comparator`? Which is preferred?**
+- `Comparable.compareTo()` defines the natural ordering — modifies the class itself (intrusive).
+- `Comparator.compare()` defines external orderings — doesn't modify the class (non-intrusive).
+- Prefer `Comparator` when: you need multiple sort orders, you can't modify the class, or you want to use lambdas.
+
+**Q11. What is an `EnumSet` and why is it fast?**
+```java
+enum Day { MON, TUE, WED, THU, FRI, SAT, SUN }
+
+EnumSet<Day> weekdays = EnumSet.of(Day.MON, Day.TUE, Day.WED, Day.THU, Day.FRI);
+EnumSet<Day> weekend = EnumSet.complementOf(weekdays);
+```
+- Implemented as a **bit vector** internally — each enum constant maps to a bit.
+- All operations (add, contains, remove) are O(1) bit operations.
+- Much faster than `HashSet<Enum>` for enum types.
+
+**Q12. What is `Collections.unmodifiableList()` vs `List.of()` (Java 9+)?**
+- `unmodifiableList()`: wraps a mutable list — the underlying list can still change if someone holds a reference to it.
+- `List.of()`: truly immutable — no way to modify it, throws `UnsupportedOperationException` on any write attempt. Also doesn't allow `null` elements.

@@ -280,3 +280,160 @@ A method is not allowed to catch an instance of a type parameter.
 public void print(List<String> stringList) { }  // Error
 public void print(List<Integer> integerList) { }
 ```
+
+---
+
+## Additional Examples — PECS (Producer Extends, Consumer Super)
+
+The most important rule for working with wildcards in practice:
+
+- **`? extends T`** (upper bounded) — use when the generic is a **producer** (you read from it)
+- **`? super T`** (lower bounded) — use when the generic is a **consumer** (you write into it)
+
+```java
+// PECS Example
+public static <T> void copy(List<? extends T> source,   // produces T values
+                             List<? super T> destination) { // consumes T values
+    for (T item : source) {
+        destination.add(item);
+    }
+}
+
+List<Integer> ints = List.of(1, 2, 3);
+List<Number> numbers = new ArrayList<>();
+copy(ints, numbers);  // works: Integer extends Number
+
+// Collections.copy() uses the same principle
+Collections.copy(dest, src);  // void copy(List<? super T> dest, List<? extends T> src)
+```
+
+---
+
+## Interview Questions — Generics
+
+**Q1. What is the purpose of generics? What problems do they solve?**
+- **Type safety at compile time**: errors caught early, no `ClassCastException` at runtime.
+- **Elimination of casts**: no need to cast when reading from a collection.
+- **Code reuse**: one algorithm/data structure works with any type.
+```java
+// Without generics (pre Java 5)
+List list = new ArrayList();
+list.add("hello");
+String s = (String) list.get(0);  // unchecked cast — could fail at runtime
+
+// With generics
+List<String> list = new ArrayList<>();
+list.add("hello");
+String s = list.get(0);  // no cast — safe and clean
+```
+
+**Q2. What is type erasure? How does it affect generics at runtime?**
+- During compilation, generic type information is **erased** — `List<String>` becomes `List` at bytecode level.
+- At runtime, `List<String>` and `List<Integer>` are the same class (`ArrayList`).
+- Implication: you cannot use `instanceof` with parameterized types, and you cannot create arrays of generic types.
+```java
+List<String> strList = new ArrayList<>();
+List<Integer> intList = new ArrayList<>();
+System.out.println(strList.getClass() == intList.getClass()); // TRUE — both are ArrayList
+```
+
+**Q3. What is the difference between `List<Object>`, `List<?>`, and a raw `List`?**
+```java
+List<Object> objList;  // accepts ONLY List<Object> — not List<String>!
+List<?> wildcardList;  // accepts ANY parameterized List (but you can only read, not add non-null)
+List rawList;          // unchecked — like pre-Java-5 (avoid — no type safety)
+
+// Example
+void processObjects(List<Object> list) { }
+processObjects(new ArrayList<String>());  // COMPILE ERROR — List<String> is NOT a List<Object>
+
+void processAny(List<?> list) { list.get(0); } // can read
+processAny(new ArrayList<String>());  // OK
+```
+
+**Q4. Explain `? extends T` vs `? super T`. Give an example.**
+```java
+// ? extends T — you can READ T but NOT write (except null)
+List<? extends Number> nums = new ArrayList<Integer>();
+Number n = nums.get(0);   // OK
+nums.add(42);             // COMPILE ERROR — could be List<Double>, not safe
+
+// ? super T — you can WRITE T but reading gives Object
+List<? super Integer> nums2 = new ArrayList<Number>();
+nums2.add(42);            // OK — Integer is safe to add
+Object obj = nums2.get(0); // only Object returned — type lost
+
+// Mnemonic: PECS — Producer Extends, Consumer Super
+```
+
+**Q5. Can generics work with primitive types?**
+- No. Generics only work with reference types. Use wrapper classes instead.
+- Java auto-boxes: `List<Integer>` accepts `int` via autoboxing, but there's overhead.
+- Java 21+ preview (Valhalla project) may eventually support `List<int>`.
+
+**Q6. What is a generic method? How is it different from a method in a generic class?**
+```java
+// Generic class — T defined at class level
+class Box<T> {
+    T value;
+    T get() { return value; }  // uses class-level T
+}
+
+// Generic method — T defined at method level (independent of class)
+class Util {
+    public static <T extends Comparable<T>> T max(T a, T b) {
+        return a.compareTo(b) >= 0 ? a : b;
+    }
+}
+
+// Call:
+int m = Util.max(3, 7);        // T inferred as Integer
+String s = Util.max("a", "z"); // T inferred as String
+```
+
+**Q7. Why can't you do `new T()` or `new T[]` in a generic method?**
+- Due to type erasure, `T` is replaced with `Object` at runtime — the JVM doesn't know the concrete type.
+- Workaround: pass a `Class<T>` parameter and use reflection.
+```java
+public <T> T create(Class<T> clazz) throws Exception {
+    return clazz.getDeclaredConstructor().newInstance();
+}
+String s = create(String.class);
+```
+
+**Q8. What is a bounded wildcard? Give a real use case.**
+```java
+// Upper bounded — process any list of Numbers or subtypes
+public double sum(List<? extends Number> numbers) {
+    return numbers.stream().mapToDouble(Number::doubleValue).sum();
+}
+sum(List.of(1, 2, 3));       // List<Integer> — OK
+sum(List.of(1.5, 2.5));      // List<Double> — OK
+
+// Lower bounded — add Numbers to a list that accepts Numbers or supertypes
+public void fillWithNumbers(List<? super Integer> list) {
+    for (int i = 0; i < 10; i++) list.add(i);
+}
+fillWithNumbers(new ArrayList<Integer>());  // OK
+fillWithNumbers(new ArrayList<Number>());   // OK
+fillWithNumbers(new ArrayList<Object>());   // OK
+```
+
+**Q9. What is the diamond operator `<>` and when was it introduced?**
+- Introduced in **Java 7**. Allows the compiler to infer the type parameter from context.
+```java
+// Before Java 7 — redundant type on the right
+Map<String, List<Integer>> map = new HashMap<String, List<Integer>>();
+
+// Java 7+ — diamond infers from left side
+Map<String, List<Integer>> map = new HashMap<>();
+```
+
+**Q10. Can you have a generic static field? Why not?**
+- No. A static field is shared across all instances of the class. Since different instances can have different type parameters, a generic static field would be ambiguous.
+```java
+class Container<T> {
+    static T value;  // COMPILE ERROR — T is per-instance, static is per-class
+    T instanceValue; // OK
+}
+```

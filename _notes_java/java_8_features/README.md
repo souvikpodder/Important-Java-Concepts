@@ -354,4 +354,143 @@ fetchingData
 
 // The main thread can do other work here while the CompletableFuture handles the rest in the background
 System.out.println("Main thread is not blocked!");
+
+---
+
+## Interview Questions — Java 8 Features
+
+**Q1. What is a functional interface? Can it have other methods?**
+- A functional interface has exactly **one abstract method** (SAM — Single Abstract Method).
+- It CAN have any number of `default` and `static` methods.
+- `@FunctionalInterface` annotation is optional but recommended (compiler enforces the SAM rule if present).
+- Examples: `Runnable`, `Callable`, `Comparator`, `Predicate`, `Function`, `Consumer`, `Supplier`.
+
+**Q2. What are the built-in functional interfaces in `java.util.function`?**
+| Interface | Method | Input → Output | Example |
+|---|---|---|---|
+| `Predicate<T>` | `test(T)` | T → boolean | Filtering |
+| `Function<T,R>` | `apply(T)` | T → R | Mapping/transforming |
+| `Consumer<T>` | `accept(T)` | T → void | Printing/saving |
+| `Supplier<T>` | `get()` | () → T | Factories/lazy creation |
+| `BiFunction<T,U,R>` | `apply(T,U)` | T,U → R | Two-arg transform |
+| `UnaryOperator<T>` | `apply(T)` | T → T | Transform same type |
+| `BinaryOperator<T>` | `apply(T,T)` | T,T → T | Combine same type |
+
+**Q3. What are the four types of method references?**
+```java
+// 1. Static method reference: ClassName::staticMethod
+Function<String, Integer> parser = Integer::parseInt;
+
+// 2. Instance method on a specific object: instance::method
+String prefix = "Hello, ";
+Function<String, String> greeter = prefix::concat;
+
+// 3. Instance method on an arbitrary object of a type: ClassName::instanceMethod
+Function<String, String> upper = String::toUpperCase;  // called on the string passed to apply()
+
+// 4. Constructor reference: ClassName::new
+Supplier<ArrayList<String>> listFactory = ArrayList::new;
+```
+
+**Q4. What is the difference between `map()` and `flatMap()` in Streams?**
+```java
+// map(): transforms each element to ONE element
+List<String> words = List.of("Hello", "World");
+List<Integer> lengths = words.stream()
+    .map(String::length)   // ["Hello" → 5, "World" → 5]
+    .collect(Collectors.toList());  // [5, 5]
+
+// flatMap(): transforms each element to ZERO OR MORE elements, then flattens
+List<String> sentences = List.of("Hello World", "Java 8");
+List<String> allWords = sentences.stream()
+    .flatMap(s -> Arrays.stream(s.split(" ")))  // each sentence → stream of words
+    .collect(Collectors.toList());  // [Hello, World, Java, 8]
+
+// flatMap for Optional:
+Optional<String> name = Optional.of("Alice");
+Optional<String> upper = name.flatMap(s -> Optional.of(s.toUpperCase()));
+```
+
+**Q5. What is the difference between `Optional.of()`, `Optional.ofNullable()`, and `Optional.empty()`?**
+```java
+Optional.of("value")          // creates Optional with value; throws NPE if null
+Optional.ofNullable(null)     // creates Optional.empty() if null; no exception
+Optional.empty()              // explicit empty Optional
+
+// Using Optional
+Optional<String> opt = Optional.ofNullable(findUser());
+String name = opt.orElse("Unknown");           // default if empty
+String name2 = opt.orElseGet(() -> computeDefault());  // lazy default
+opt.orElseThrow(() -> new UserNotFoundException("Not found"));
+opt.map(User::getName).orElse("Unknown");
+opt.filter(s -> s.startsWith("A")).isPresent();
+opt.ifPresent(u -> System.out.println(u));  // only if present
+```
+
+**Q6. What is the difference between `Predicate.and()`, `Predicate.or()`, and `Predicate.negate()`?**
+```java
+Predicate<Integer> isEven = n -> n % 2 == 0;
+Predicate<Integer> isPositive = n -> n > 0;
+
+Predicate<Integer> isEvenAndPositive = isEven.and(isPositive);   // both true
+Predicate<Integer> isEvenOrPositive = isEven.or(isPositive);     // either true
+Predicate<Integer> isOdd = isEven.negate();                      // NOT even
+
+List<Integer> nums = List.of(-4, -1, 0, 2, 3, 6);
+nums.stream().filter(isEvenAndPositive).collect(Collectors.toList()); // [2, 6]
+```
+
+**Q7. What is effectively final? Why does it matter for lambdas?**
+- A variable is "effectively final" if it is never modified after initialization (even without the `final` keyword).
+- Lambdas can only capture effectively final variables from the enclosing scope.
+- **Why?** Lambdas may be executed in a different thread or at a later time — if the variable could change, the captured value would be stale or create race conditions.
+
+**Q8. How does the new Date/Time API (`java.time`) differ from the old `java.util.Date`?**
+| | Old (`java.util.Date`) | New (`java.time`) |
+|---|---|---|
+| Mutability | Mutable | **Immutable** |
+| Thread-safe | No | Yes |
+| Null handling | Confusing | Better |
+| Calculation | Painful (Calendar) | Intuitive (`.plusDays()`, etc.) |
+| Key classes | Date, Calendar | LocalDate, LocalDateTime, ZonedDateTime, Duration, Period |
+
+```java
+LocalDate today = LocalDate.now();
+LocalDate nextWeek = today.plusWeeks(1);
+Period period = Period.between(today, nextWeek);  // P7D
+
+LocalDateTime meeting = LocalDateTime.of(2024, Month.JUNE, 15, 10, 30);
+ZonedDateTime utcMeeting = meeting.atZone(ZoneId.of("UTC"));
+```
+
+**Q9. What is `Function.compose()` vs `Function.andThen()`?**
+```java
+Function<Integer, Integer> times2 = x -> x * 2;
+Function<Integer, Integer> plus3 = x -> x + 3;
+
+// andThen: f.andThen(g) = g(f(x))  →  apply f first, then g
+Function<Integer, Integer> times2ThenPlus3 = times2.andThen(plus3);
+times2ThenPlus3.apply(5);  // (5*2)+3 = 13
+
+// compose: f.compose(g) = f(g(x))  →  apply g first, then f
+Function<Integer, Integer> plus3ThenTimes2 = times2.compose(plus3);
+plus3ThenTimes2.apply(5);  // (5+3)*2 = 16
+```
+
+**Q10. What is a default method in an interface? Why was it introduced?**
+- A method in an interface with a **concrete implementation** (using `default` keyword).
+- Introduced to allow **backward compatibility**: existing interfaces (like `Collection`) could gain new methods (`forEach`, `stream()`) without breaking all existing implementations.
+- If a class implements two interfaces with the same default method, it **must override** the method to resolve ambiguity.
+
+**Q11. What is `Stream.reduce()` and how does it work?**
+```java
+List<Integer> nums = List.of(1, 2, 3, 4, 5);
+
+// reduce(identity, accumulator)
+int sum = nums.stream().reduce(0, Integer::sum);   // 0+1+2+3+4+5 = 15
+int product = nums.stream().reduce(1, (a, b) -> a * b);  // 120
+
+// reduce without identity returns Optional (in case stream is empty)
+Optional<Integer> max = nums.stream().reduce(Integer::max);  // Optional[5]
+```
 ```

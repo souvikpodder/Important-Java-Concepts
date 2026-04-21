@@ -75,3 +75,83 @@ LLD is the "zoom-in" on a specific box from your HLD diagram. If HLD says "Here 
 ## Example: Building WhatsApp
 * **HLD Phase**: You decide that users will connect via WebSockets to a Chat Server. The Chat Server sends messages to a Kafka Queue. A Cassandra database will store the chat history because it handles massive write volumes well.
 * **LLD Phase**: You zoom into the "Chat Server" itself. You design a `WebSocketSessionManager` class (Singleton). You design an interface `MessageSender` with a strategy pattern implementation (`TextSender`, `ImageSender`, `VideoSender`). You outline the actual `CREATE TABLE messages (...)` schema for Cassandra.
+
+---
+
+## Key System Design Concepts
+
+### CAP Theorem
+A distributed system can only guarantee 2 out of 3:
+- **C**onsistency: every read gets the most recent write (or an error).
+- **A**vailability: every request gets a response (but may not be latest data).
+- **P**artition tolerance: system continues operating if network splits.
+
+During a network partition, you must choose C or A:
+- **CP systems**: choose consistency (may be unavailable). E.g., HBase, Zookeeper.
+- **AP systems**: choose availability (may return stale data). E.g., Cassandra, DynamoDB, CouchDB.
+- **CA systems**: only theoretical — real networks always have partitions.
+
+### Horizontal vs Vertical Scaling
+- **Vertical (Scale-Up)**: add more CPU/RAM to one server. Simpler, has hardware limit.
+- **Horizontal (Scale-Out)**: add more servers. Unlimited scale, requires stateless services or shared state (Redis/DB).
+
+### SQL vs NoSQL
+| | SQL (PostgreSQL, MySQL) | NoSQL (MongoDB, Cassandra) |
+|---|---|---|
+| Schema | Fixed schema | Dynamic schema |
+| ACID | Full ACID | Limited (BASE — Eventually consistent) |
+| Scaling | Vertical (or sharding) | Horizontal |
+| Use case | Complex queries, joins, transactions | High-speed reads/writes, flexible data |
+
+### Caching Strategies
+```
+Cache-Aside (Lazy Loading): App checks cache → miss → load from DB → write to cache
+Write-Through: Every write goes to cache AND DB simultaneously
+Write-Behind: Write to cache, async write to DB (eventual consistency)
+Read-Through: Cache sits in front of DB, cache handles DB reads automatically
+```
+
+---
+
+## Interview Questions — System Design & HLD/LLD
+
+**Q1. How would you design a URL shortener (like bit.ly)?**
+- **HLD**: Client → API Gateway → URL Shortener Service → (Cache: Redis, DB: Cassandra). CDN for static assets.
+- **LLD**: `UrlShortener` service with `encode(longUrl): String` and `decode(shortCode): String`. Use base62 encoding. Store mapping in Redis (fast lookup) + Cassandra (persistence).
+- **Scale concerns**: 1000 writes/sec, 100K reads/sec → read-heavy → cache aggressively.
+
+**Q2. What is consistent hashing? Why is it used in distributed systems?**
+- Maps servers and keys to the same hash ring. When a server is added/removed, only keys on the adjacent arc are redistributed (not all keys).
+- Used in: Redis clusters, Cassandra, load balancers, CDNs.
+- Normal hashing with N servers: changing N remaps ALL keys.
+- Consistent hashing: changing N remaps only `K/N` keys (minimal disruption).
+
+**Q3. What is the difference between a Load Balancer and an API Gateway?**
+| | Load Balancer | API Gateway |
+|---|---|---|
+| Purpose | Distribute traffic across servers | Smart routing + security + aggregation |
+| Authentication | No | Yes |
+| Rate limiting | Basic | Advanced |
+| SSL termination | Yes | Yes |
+| Request transformation | No | Yes |
+| Service discovery | Basic | Yes |
+
+**Q4. What is database sharding?**
+- Horizontal partitioning of a database across multiple servers (shards).
+- Each shard holds a subset of data (e.g., users A-M on shard 1, N-Z on shard 2).
+- **Benefits**: scale beyond single server capacity.
+- **Challenges**: cross-shard joins, resharding when adding nodes, hotspot shards.
+
+**Q5. What is the difference between HLD and LLD in an interview context?**
+- **HLD interview** (system design): design Twitter, Netflix, Uber at scale. Focus on components, databases, scalability, availability, latency.
+- **LLD interview** (OO design): design a parking lot, elevator, chess game. Focus on classes, interfaces, patterns, SOLID principles.
+- HLD → CAP theorem, sharding, caching, microservices.
+- LLD → SOLID, design patterns, class diagrams, UML.
+
+**Q6. How do you approach a system design interview?**
+1. **Clarify requirements** (5 min): functional & non-functional (scale, latency, availability).
+2. **Capacity estimation** (5 min): QPS, storage, bandwidth.
+3. **Define APIs** (5 min): key endpoints.
+4. **HLD diagram** (10 min): major components and their interactions.
+5. **Deep dive** (15 min): dive into the most critical components.
+6. **Discuss trade-offs**: consistency vs. availability, SQL vs. NoSQL, etc.

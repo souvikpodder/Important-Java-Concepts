@@ -117,3 +117,158 @@ public class UserHandler {
 ## 6. When SHOULDN'T you use WebFlux?
 * **If you rely on blocking APIs**: If your driver (like traditional JDBC, JPA/Hibernate) is blocking, it will tie up the few event-loop threads and crash your application's performance. You **must** use reactive database drivers (like R2DBC for SQL or reactive Mongo/Redis drivers).
 * **If it's a simple CRUD app with low load**: The complexity of debugging reactive chains and mental overhead is not worth it if you don't actually have a scaling issue. Spring MVC + Virtual Threads (Java 21) is often a much easier modern solution.
+
+---
+
+## 7. Common WebFlux Operators
+
+```java
+// Mono operators
+Mono.just("hello")
+    .map(String::toUpperCase)           // sync transform
+    .flatMap(s -> fetchFromDB(s))       // async transform (returns Mono)
+    .filter(s -> !s.isEmpty())          // conditional
+    .defaultIfEmpty("fallback")         // default if empty
+    .switchIfEmpty(Mono.error(new NotFoundException()))  // throw if empty
+    .onErrorReturn("error fallback")    // fallback on error
+    .onErrorResume(ex -> Mono.just("fallback"))  // reactive fallback
+    .doOnNext(s -> log.info("Got: " + s))  // side effect
+    .doOnError(ex -> log.error("Error", ex))
+    .timeout(Duration.ofSeconds(5));    // timeout
+
+// Flux operators
+Flux.range(1, 10)
+    .map(n -> n * 2)
+    .filter(n -> n > 5)
+    .take(3)                    // take first 3
+    .skip(2)                    // skip first 2
+    .distinct()                 // unique values
+    .flatMap(n -> asyncOp(n))   // async, may interleave results
+    .concatMap(n -> asyncOp(n)) // async, preserves order
+    .buffer(5)                  // group into List<T> of size 5
+    .zipWith(Flux.range(1, 10), (a, b) -> a + ":" + b)  // pair elements
+    .collectList()              // Flux<T> → Mono<List<T>>
+    .reduce(0, Integer::sum);   // Flux<T> → Mono<T>
+```
+
+## 8. WebClient (Reactive HTTP Client)
+
+`WebClient` is the reactive replacement for `RestTemplate`:
+
+```java
+@Service
+public class ExternalApiService {
+
+    private final WebClient webClient;
+
+    public ExternalApiService(WebClient.Builder builder) {
+        this.webClient = builder
+            .baseUrl("https://api.example.com")
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .build();
+    }
+
+    // GET request
+    public Mono<User> getUser(Long id) {
+        return webClient.get()
+            .uri("/users/{id}", id)
+            .retrieve()
+            .bodyToMono(User.class)
+            .onErrorMap(WebClientResponseException.NotFound.class,
+                ex -> new UserNotFoundException("User " + id + " not found"));
+    }
+
+    // POST request
+    public Mono<User> createUser(User user) {
+        return webClient.post()
+            .uri("/users")
+            .bodyValue(user)
+            .retrieve()
+            .bodyToMono(User.class);
+    }
+
+    // GET list
+    public Flux<User> getAllUsers() {
+        return webClient.get()
+            .uri("/users")
+            .retrieve()
+            .bodyToFlux(User.class);
+    }
+}
+```
+
+---
+
+## Interview Questions — Spring WebFlux
+
+**Q1. What is reactive programming? What problem does it solve?**
+- A programming paradigm for building **non-blocking, asynchronous, event-driven** applications.
+- Traditional blocking I/O ties up a thread while waiting. Under heavy load (10K concurrent requests) you need 10K threads (~10GB RAM).
+- Reactive: a small number of threads (= CPU cores) handle thousands of requests by not blocking — requests yield control during I/O waits and resume when data is ready.
+
+**Q2. What is the difference between `Mono` and `Flux`?**
+| | Mono<T> | Flux<T> |
+|---|---|---|
+| Items | 0 or 1 | 0 to N |
+| Analogy | `Optional` / `CompletableFuture` | `Stream` / `List` |
+| Use case | Single record fetch, save | List of items, streaming |
+
+**Q3. What is backpressure in reactive programming?**
+- Backpressure is a mechanism where the **consumer** signals to the **producer** how much data it can handle, preventing buffer overflow.
+- In Project Reactor, this is handled via the `request(n)` subscription method.
+- `Flux.range(1, 1_000_000).subscribe()` won't produce all million items at once — subscriber requests them in batches.
+- Operators like `buffer()`, `sample()`, `onBackpressureDrop()`, `onBackpressureBuffer()` control backpressure strategies.
+
+**Q4. What is the difference between `flatMap()` and `concatMap()` in Flux?**
+```java
+Flux.range(1, 5)
+    .flatMap(n -> Mono.delay(Duration.ofMillis(100-n*10)).map(t -> n))
+    .subscribe(System.out::println);  // May print: 5 4 3 2 1 (out of order — concurrent)
+
+Flux.range(1, 5)
+    .concatMap(n -> Mono.delay(Duration.ofMillis(100-n*10)).map(t -> n))
+    .subscribe(System.out::println);  // Always prints: 1 2 3 4 5 (preserves order)
+```
+- `flatMap`: subscribes to inner publishers eagerly — concurrent, order NOT preserved.
+- `concatMap`: subscribes sequentially — order preserved, but slower.
+
+**Q5. What is `Schedulers` in Project Reactor?**
+```java
+// Switch execution context
+Mono.fromCallable(() -> blockingDbCall())  // blocking operation in reactive
+    .subscribeOn(Schedulers.boundedElastic())  // run on elastic thread pool
+    .publishOn(Schedulers.parallel())          // switch to parallel pool for downstream
+
+// Common schedulers:
+Schedulers.parallel()          // bounded, # CPU cores, for CPU-bound
+Schedulers.boundedElastic()    // unbounded (bounded growth), for I/O/blocking ops
+Schedulers.single()            // single reusable thread
+Schedulers.immediate()         // current thread
+```
+
+**Q6. When should you use WebFlux vs Spring MVC?**
+- **Use WebFlux**: High concurrency, I/O-heavy (calling many services), streaming (SSE/WebSocket), need non-blocking from top to bottom (reactive DB driver).
+- **Use Spring MVC**: CRUD apps, blocking DB (JPA/JDBC), simpler code, small-to-medium load.
+- **Java 21 Virtual Threads alternative**: For I/O-heavy workloads, Spring MVC + Virtual Threads can achieve similar throughput as WebFlux with much simpler code. Virtual Threads handle the blocking-thread problem at the JVM level.
+
+**Q7. How do you handle errors in WebFlux?**
+```java
+Mono<User> result = userService.findById(id)
+    .onErrorReturn(new User("default"))       // return default on any error
+    .onErrorResume(NotFoundException.class,   // reactive fallback for specific exception
+        ex -> userService.getDefaultUser())
+    .onErrorMap(SQLException.class,            // wrap/transform exception
+        ex -> new ServiceException("DB error", ex))
+    .doOnError(ex -> log.error("Error", ex)); // side effect, doesn't change flow
+```
+
+**Q8. What is the difference between `subscribeOn()` and `publishOn()`?**
+- `subscribeOn()`: changes the thread used for the **source** (affects upstream). Should be at the bottom of the chain. Used for blocking sources.
+- `publishOn()`: changes the thread for **downstream operators** (signals). Can switch threads mid-pipeline.
+```java
+Flux.range(1, 10)
+    .publishOn(Schedulers.parallel())   // from here down runs on parallel
+    .map(n -> transform(n))
+    .subscribeOn(Schedulers.single())   // source runs on single thread
+    .subscribe(System.out::println);
+```
