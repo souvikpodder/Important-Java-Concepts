@@ -1,0 +1,4 @@
+# AI Assistant Guidelines for "Important-Java-Concepts"
+
+1. **Auto-Update Index Memory:**
+   Whenever you create a new markdown notes file or directory within the `_notes_java` folder, you MUST immediately update `_notes_java/INDEX.md`. Ensure that you add an entry with the title, relative link, and a brief description in the alphabetized list within the index file.
