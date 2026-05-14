@@ -655,3 +655,25 @@ void withDedicatedLock() {
     synchronized(lock) { sharedCounter++; }
 }
 ```
+
+**Q13. What is the difference between `synchronized` and `ReentrantLock`?**
+| Feature | `synchronized` | `ReentrantLock` |
+|---|---|---|
+| **Locking** | Implicit (handled by JVM) | Explicit (must call `lock()` and `unlock()`) |
+| **Fairness** | Non-fair | Can be fair or non-fair (configurable via constructor) |
+| **Interruptibility**| Cannot be interrupted while waiting | Supports `lockInterruptibly()` |
+| **Try-locking** | No, blocks indefinitely | Supports `tryLock()` (with optional timeout) |
+| **Condition Variables**| Single wait-set (`wait()`, `notify()`) | Multiple wait-sets via `Condition` objects (`newCondition()`) |
+| **Scope** | Block-scoped (locked and unlocked in the same block) | Can span across different methods |
+
+**Example of `ReentrantLock`:**
+```java
+ReentrantLock lock = new ReentrantLock();
+lock.lock();
+try {
+    // critical section
+} finally {
+    // CRITICAL: Always unlock in finally block
+    lock.unlock(); 
+}
+```

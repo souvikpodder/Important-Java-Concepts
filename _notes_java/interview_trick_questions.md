@@ -21,19 +21,47 @@ System.out.println(c == d);
 **Why?** Java caches `Integer` objects for values from **-128 to 127** (Integer Cache). Since `100` falls in this range, `a` and `b` point to the exact same object in memory. However, `1000` is outside the cache, so `c` and `d` are two different objects created on the heap. `==` checks for memory reference equality, not value equality.
 
 ### 2. Method Overloading with `null`
-**Question:** What happens when you run this code?
+**Question:** How does the Java compiler resolve method overloading when you pass `null`?
+
+**Answer:** The compiler attempts to find the **most specific** method that can accept `null`. Since `null` represents the absence of an object reference, it **can never be assigned to a primitive type**. 
+
+Here are the four key scenarios you must know:
+
+**1. Object vs. Subclass (The Subclass Wins)**
 ```java
-public class Test {
-    public void print(Object o) { System.out.println("Object"); }
-    public void print(String s) { System.out.println("String"); }
-    
-    public static void main(String[] args) {
-        new Test().print(null);
-    }
-}
+public void print(Object o) { System.out.println("Object"); }
+public void print(String s) { System.out.println("String"); }
+
+print(null); // Prints: "String"
 ```
-**Answer:** It prints `"String"`.
-**Why?** In Java method overloading, the compiler always chooses the most **specific** type. Since `String` is a subclass of `Object`, `String` is more specific. (If you added a third method `public void print(Integer i)`, the compiler would throw an "ambiguous method call" error because `String` and `Integer` are siblings).
+*Why:* Both can accept `null`, but `String` is a subclass of `Object`, making it more specific.
+
+**2. Multiple Unrelated Subclasses (Ambiguity Error)**
+```java
+public void print(String s) { System.out.println("String"); }
+public void print(Integer i) { System.out.println("Integer"); }
+
+print(null); // Compile-time Error: ambiguous method call
+```
+*Why:* `null` is valid for both `String` and `Integer`. Because they are siblings (neither is a subclass of the other), there is no single "most specific" choice. *(Note: Adding a `print(Object o)` method here does not fix the ambiguity error, because String and Integer are still tied at the bottom).*
+
+**3. Primitive vs. Reference Type (Reference Wins)**
+```java
+public void print(int i) { System.out.println("Primitive int"); }
+public void print(String s) { System.out.println("String"); }
+
+print(null); // Prints: "String"
+```
+*Why:* `null` cannot be assigned to `int`. The primitive method is completely ignored by the compiler, leaving `String` as the only option.
+
+**4. Primitive vs. Wrapper Class (Wrapper Wins)**
+```java
+public void print(int i) { System.out.println("Primitive int"); }
+public void print(Integer i) { System.out.println("Wrapper Integer"); }
+
+print(null); // Prints: "Wrapper Integer"
+```
+*Why:* Even with autoboxing, `null` is not a primitive. The compiler ignores the `int` method and uses the `Integer` reference type. *(Careful: if the method attempts to unbox the `Integer` for math, it will throw a `NullPointerException` at runtime!)*
 
 ### 3. The `try-finally` Return Override
 **Question:** What value does this method return?
@@ -72,6 +100,23 @@ String s1 = new String("Hello");
 1. `"Hello"` is a literal, so an object is created and placed in the **String Constant Pool**.
 2. The `new String(...)` explicitly forces Java to create a second, separate object on the **Heap**, outside the pool. 
 *(Note: If "Hello" was already in the pool from elsewhere in the application, only one new object is created on the heap.)*
+
+### 6. Autoboxing and Unboxing Exceptions
+**Question:** What is autoboxing, and what happens when you run this code?
+```java
+public class AutoboxingTest {
+    public static void main(String[] args) {
+        Integer wrapper = null;
+        int primitive = wrapper;
+        System.out.println(primitive);
+    }
+}
+```
+**Answer:** It compiles fine, but throws a `NullPointerException` at runtime.
+
+**Why?** 
+**Autoboxing** is the automatic conversion that the Java compiler makes between primitive types (like `int`, `boolean`) and their corresponding object wrapper classes (like `Integer`, `Boolean`). The reverse process is called **unboxing**. 
+In the code above, the compiler implicitly unboxes `wrapper` to a primitive `int` by calling `wrapper.intValue()`. Because `wrapper` is `null`, invoking `.intValue()` on a `null` reference results in a `NullPointerException`. This is a very common interview pitfall when combining object wrappers, collections, and primitives.
 
 ---
 
