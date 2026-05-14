@@ -20,15 +20,15 @@
 ## [1] Java - Fundamentals & OOPS [Done]
 ### NOTES [Useful Info] :
 
-*[-> All 50 Java Keywords with definitions & examples](_notes_java/java_keywords)*
+*[-> All 50 Java Keywords with definitions & examples](_notes_java/java_keywords.md)*
 
-*[-> Java Features, Execution Process & JVM Internals](_notes_java/java_how_it_works)*
+*[-> Java Features, Execution Process & JVM Internals](_notes_java/java_how_it_works.md)*
 
-*[-> Java Fundamentals & OOPS Concepts](_notes_java/java_basics_and_oops)*
+*[-> Java Fundamentals & OOPS Concepts](_notes_java/java_basics_and_oops.md)*
 
-*[-> Java OOPS - few points to remember](_notes_java/java_oops_rules)*
+*[-> Java OOPS - few points to remember](_notes_java/java_oops_rules.md)*
 
-*[-> Methods of Number, Char, String, Array Classes](_notes_java/java_important_methods)*
+*[-> Methods of Number, Char, String, Array Classes](_notes_java/java_important_methods.md)*
 
 ### PROGRAMS :
 #### [Variables & Operators](_programs_java/java_basicsI_and_oops/variables_and_operators) | [Control Flow](_programs_java/java_basicsI_and_oops/control_flow) 
@@ -49,11 +49,11 @@
 
 ## [2] Java - Generics, Collections & Exception Handling [Done]
 ### NOTES [Useful Info] :
-*[-> Java Generics](_notes_java/java_generics)*
+*[-> Java Generics](_notes_java/java_generics.md)*
 
-*[-> Java Collections Framework](_notes_java/java_collections)*
+*[-> Java Collections Framework](_notes_java/java_collections.md)*
 
-*[-> Java Errors and Exception Handling](_notes_java/java_exceptions)*
+*[-> Java Errors and Exception Handling](_notes_java/java_exceptions.md)*
 
 ### PROGRAMS :
 #### [Generics in Java](_programs_java/java_basicsII_and_collections/generics)
@@ -72,13 +72,13 @@
 
 ## [3] Java - Files, I/O, Serialization, Networking, Others [Done]
 ### NOTES [Useful Info] :
-*[-> Java Files and I/O](_notes_java/java_input_output)*
+*[-> Java Files and I/O](_notes_java/java_input_output.md)*
 
-*[-> Java Serialization](_notes_java/java_serialization)*
+*[-> Java Serialization](_notes_java/java_serialization.md)*
 
-*[-> Java Networking](_notes_java/java_networking)*
+*[-> Java Networking](_notes_java/java_networking.md)*
 
-*[-> Java RegEx & Lambda Expressions](_notes_java/java_regex_and_lambda)*
+*[-> Java RegEx & Lambda Expressions](_notes_java/java_regex_and_lambda.md)*
 
 ### PROGRAMS :
 #### [Files and I/O](_programs_java/java_io_networking/input_output)
@@ -96,9 +96,9 @@
 ## [4] Java - Threads, Concurrency & Concurrent Collections [WIP]
 ![threads](https://user-images.githubusercontent.com/2780145/109363422-8cff8580-78b2-11eb-83c3-77151011e4d1.png)
 ### NOTES [Useful Info] :
-*[-> Java Multithreading & Garbage Collection](_notes_java/java_multithreading)*
+*[-> Java Multithreading & Garbage Collection](_notes_java/java_multithreading.md)*
 
-*[-> Java Thread Synchronization](_notes_java/java_thread_synchronization)*
+*[-> Java Thread Synchronization](_notes_java/java_thread_synchronization.md)*
 
 ### PROGRAMS :
 #### [Multithreading](_programs_java/java_concurrency/multithreading)
@@ -112,7 +112,7 @@
 ## [5] Java - Software Design [WIP]
 ![software design](https://user-images.githubusercontent.com/2780145/109359203-0c895680-78ab-11eb-8347-f5efb39f086c.png)
 ### NOTES [Useful Info] :
-*[-> Design Patterns & Examples in JDK](_notes_others/design_patterns_intro)*
+*[-> Design Patterns & Examples in JDK](_notes_others/design_patterns_intro.md)*
 
 *-> Creational Patterns: [Singleton](https://medium.com/android-saga/design-patterns-in-java-android-singleton-d50afa0c868f), [Builder](https://medium.com/android-saga/design-patterns-in-java-android-builder-c4847dfa50bb), [Factory Method](https://medium.com/android-saga/design-patterns-in-java-android-factory-e194b8338f05), [Prototype](https://medium.com/android-saga/design-patterns-in-java-android-prototype-6577f0c762e1)*
 
@@ -120,7 +120,7 @@
 
 *-> Behavioral Patterns*
 
-*[-> Design Patterns Cheat Sheet](_notes_others/design_patterns_cheatsheet)*
+*[-> Design Patterns Cheat Sheet](_notes_others/design_patterns_cheatsheet.md)*
 
 ### PROGRAMS :
 
@@ -138,17 +138,17 @@
 ![algo coding](https://user-images.githubusercontent.com/2780145/109364614-2f206d00-78b5-11eb-8752-e28a8cf67f16.png)
 
 ### NOTES [Useful Info] :
-*[-> Common Data Structures](_notes_others/ds)*
+*[-> Common Data Structures](_notes_others/ds.md)*
 
-*[-> Searching and Sorting Algorithms](_notes_others/search_sort)*
+*[-> Searching and Sorting Algorithms](_notes_others/search_sort.md)*
 
-*[-> Tree and Graph Algorithms](_notes_others/tree_graph)*
+*[-> Tree and Graph Algorithms](_notes_others/tree_graph.md)*
 
-*[-> Concepts of Dynamic Programming](_notes_others/dp)*
+*[-> Concepts of Dynamic Programming](_notes_others/dp.md)*
 
-*[-> Big O Cheat Sheet](_notes_others/bigO)*
+*[-> Big O Cheat Sheet](_notes_others/bigO.md)*
 
-*[-> LeetCode Data Structures & Algorithms Patterns](_notes_others/leetcode_dsa_patterns)*
+*[-> LeetCode Data Structures & Algorithms Patterns](_notes_others/leetcode_dsa_patterns.md)*
 
 ### PROGRAMS :
 #### [Basic Programs](_programs_java/java_datastructures_algorithms/basic_programs) | [Recursion Programs](_programs_java/java_datastructures_algorithms/recursion_programs)
@@ -179,15 +179,15 @@
 - *Officially supported by Spring Framework, JetBrains Ktor, Eclipse Vert.x (server-side dev)*
 
 ### NOTES [Useful Info] :
-*[-> Kotlin Funadamentals and OOP](_notes_kotlin/kotlin_basics)*
+*[-> Kotlin Funadamentals and OOP](_notes_kotlin/kotlin_basics.md)*
 
 *[-> Data Structures in Kotlin](_programs_java/kotlin_algorithms/src/main/algo)*
 
 *[-> Design Patterns in Kotlin](_programs_java/kotlin_designpatterns/patterns/src/test/kotlin)*
 
-*[-> Kotlin Overview, Features & Multi-platform Support](_notes_kotlin/kotlin_overview)*
+*[-> Kotlin Overview, Features & Multi-platform Support](_notes_kotlin/kotlin_overview.md)*
 
-*[-> Java to Kotlin CheatSheets](_notes_kotlin/kotlin_java_cheatsheets)*
+*[-> Java to Kotlin CheatSheets](_notes_kotlin/kotlin_java_cheatsheets.md)*
 
 ### PROGRAMS :
 #### Basic Syntax Programs
@@ -233,13 +233,13 @@
 
 ### NOTES [Useful Info] :
 
-*[-> Retrofit](_notes_others/android_retrofit) - type-safe HTTP client for Java & Android*
+*[-> Retrofit](_notes_others/android_retrofit.md) - type-safe HTTP client for Java & Android*
 
-*[-> Glide](_notes_others/android_glide) - efficient image loading lib with media decoding, memory & disk caching*
+*[-> Glide](_notes_others/android_glide.md) - efficient image loading lib with media decoding, memory & disk caching*
 
-*[-> RoomDB](_notes_others/android_roomdb) - ORM based SQLite wrapper for fluent db access*
+*[-> RoomDB](_notes_others/android_roomdb.md) - ORM based SQLite wrapper for fluent db access*
 
-*[-> WorkManager](_notes_others/android_workmanager) - schedule deferrable, asynchronous tasks*
+*[-> WorkManager](_notes_others/android_workmanager.md) - schedule deferrable, asynchronous tasks*
 
 *-> ViewModel - store & and manage UI-related data in lifecycle-aware way*
 
@@ -259,19 +259,19 @@
 
 ## Relation of Java and Others Languages
 ### NOTES [Useful Info] :
-*[-> Comparisons between C, C++, C# and Java Language](_notes_others/cplusplus)*
+*[-> Comparisons between C, C++, C# and Java Language](_notes_others/cplusplus.md)*
 
-*[-> CheatSheet | C# for Java Developers](_notes_others/csharp)*
+*[-> CheatSheet | C# for Java Developers](_notes_others/csharp.md)*
 
-*[-> Java and Python](_notes_others/python)*
+*[-> Java and Python](_notes_others/python.md)*
 
 .
 
 ## Extras
 ### NOTES :
-*[[USEFUL INFO - Good Java & Computer Science Books for Reference]](_notes_others/books)*
+*[[USEFUL INFO - Good Java & Computer Science Books for Reference]](_notes_others/books.md)*
 
-*[[USEFUL INFO - Great Websites for Learning Java & Computer Science]](_notes_others/websites)*
+*[[USEFUL INFO - Great Websites for Learning Java & Computer Science]](_notes_others/websites.md)*
 
 .
 
