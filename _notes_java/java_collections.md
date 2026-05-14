@@ -812,7 +812,7 @@ public class TreeMapExample {
 <tr><td>Object getValue()</td><td>It is used to obtain value.</td></tr>
 </tbody></table>
 
-## HashMap vs HashTable :
+## HashMap vs Hashtable :
 
 <table class="alt">
 <tbody><tr><th>HashMap</th><th>Hashtable</th></tr>
@@ -825,6 +825,45 @@ public class TreeMapExample {
 <tr><td>7) Iterator in HashMap is <strong>fail-fast</strong>.</td><td>Enumerator in Hashtable is <strong>not fail-fast</strong>.</td></tr>
 <tr><td>8) HashMap inherits <strong>AbstractMap</strong> class.</td><td>Hashtable inherits <strong>Dictionary</strong> class.</td></tr>
 </tbody></table>
+
+### Why `Hashtable` is slower than `HashMap`
+
+`Hashtable` is slower mainly because it synchronizes almost every public method. Each `get()`, `put()`, `remove()`, and `containsKey()` must acquire the monitor lock for the entire map object.
+
+```java
+Hashtable<String, Integer> table = new Hashtable<>();
+table.put("a", 1);  // locks the whole Hashtable
+table.get("a");     // also locks the whole Hashtable
+```
+
+Important reasons:
+
+- **Whole-map locking:** Only one thread can access the `Hashtable` at a time for most operations.
+- **Reads are also locked:** Even simple `get()` operations pay synchronization cost.
+- **No concurrent writes:** Two threads updating different keys still block each other.
+- **Legacy design:** `Hashtable` extends old `Dictionary` class and is kept mainly for backward compatibility.
+- **Extra overhead in single-threaded code:** If only one thread uses the map, synchronization provides no benefit but still adds cost.
+
+`HashMap` is faster because it does not synchronize internally.
+
+```java
+Map<String, Integer> map = new HashMap<>();
+map.put("a", 1);  // no lock
+map.get("a");     // no lock
+```
+
+But `HashMap` is **not thread-safe**. In multi-threaded code, prefer `ConcurrentHashMap` instead of `Hashtable`.
+
+### `Hashtable` vs `Collections.synchronizedMap()` vs `ConcurrentHashMap`
+
+| Map Type | Thread-safe | Locking Style | Best Use |
+|---|---|---|---|
+| `HashMap` | No | No lock | Single-threaded or externally synchronized code |
+| `Hashtable` | Yes | Locks whole map | Legacy code only |
+| `Collections.synchronizedMap(new HashMap<>())` | Yes | Locks whole map wrapper | Simple thread-safe wrapper |
+| `ConcurrentHashMap` | Yes | Locks only small parts during writes | High-concurrency reads and writes |
+
+---
 
 ## Collections Framework Implementation Classes Summary :
 
@@ -935,8 +974,13 @@ Legacy classes and interfaces - Enumeration, Vector, Stack, Dictionary, HashTabl
 Regular collections are NOT thread-safe. Use these in multi-threaded environments:
 
 ### ConcurrentHashMap
+
+`ConcurrentHashMap` is a thread-safe, high-performance map from `java.util.concurrent`. It is designed for cases where multiple threads read and update the map at the same time.
+
 ```java
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.LongAdder;
 
 // Thread-safe, high-performance alternative to Hashtable/synchronizedMap
 ConcurrentHashMap<String, Integer> map = new ConcurrentHashMap<>();
@@ -953,8 +997,128 @@ map.merge("a", 1, Integer::sum);
 
 **How ConcurrentHashMap differs from HashMap and Hashtable:**
 - **HashMap**: Not thread-safe. Race conditions in multi-threaded use.
-- **Hashtable**: Thread-safe but uses a single lock on the whole map → slow.
-- **ConcurrentHashMap**: Thread-safe and fast — uses **segment-level locking** (Java 7) or **CAS + synchronized per bucket** (Java 8+). Allows concurrent reads without locking.
+- **Hashtable**: Thread-safe but uses a single lock on the whole map, so it is slow under contention.
+- **ConcurrentHashMap**: Thread-safe and fast. Java 7 used segment-level locking. Java 8+ uses CAS plus locking only the affected bucket/bin during writes. Most reads do not block.
+
+#### Key properties
+
+| Feature | Details |
+|---|---|
+| Package | `java.util.concurrent` |
+| Thread safety | Thread-safe for concurrent access |
+| Null key/value | Does not allow null keys or null values |
+| Read operations | Usually lock-free |
+| Write operations | Lock only the affected bucket/bin when needed |
+| Iterator | Weakly consistent; does not throw `ConcurrentModificationException` |
+| Ordering | No guaranteed order |
+| Best use | Shared map with frequent concurrent reads/writes |
+
+#### Why null keys and null values are not allowed
+
+In a normal `HashMap`, `get(key)` returning `null` can mean either:
+
+```text
+1. Key is absent
+2. Key exists but value is null
+```
+
+In concurrent code, that ambiguity is dangerous because another thread may modify the map between `get()` and `containsKey()`. `ConcurrentHashMap` avoids this ambiguity by disallowing null keys and values.
+
+```java
+ConcurrentHashMap<String, Integer> map = new ConcurrentHashMap<>();
+
+map.put(null, 1);     // NullPointerException
+map.put("a", null);   // NullPointerException
+```
+
+#### Common atomic methods
+
+Use these methods instead of manual `get()` then `put()` logic.
+
+```java
+ConcurrentHashMap<String, Integer> counts = new ConcurrentHashMap<>();
+
+// Insert only if absent
+counts.putIfAbsent("java", 1);
+
+// Atomic counter update
+counts.merge("java", 1, Integer::sum);
+
+// Compute thread-safe collection value only when key is missing
+ConcurrentHashMap<String, CopyOnWriteArrayList<String>> groups = new ConcurrentHashMap<>();
+groups.computeIfAbsent("backend", k -> new CopyOnWriteArrayList<>()).add("Spring");
+
+// Update only if key already exists
+counts.computeIfPresent("java", (key, oldValue) -> oldValue + 1);
+
+// General atomic compute
+counts.compute("sql", (key, oldValue) -> oldValue == null ? 1 : oldValue + 1);
+```
+
+#### Important caution with mutable values
+
+`ConcurrentHashMap` protects the map structure, not the internal state of mutable values.
+
+```java
+ConcurrentHashMap<String, List<String>> map = new ConcurrentHashMap<>();
+map.computeIfAbsent("items", k -> new ArrayList<>()).add("A");
+```
+
+The map update is thread-safe, but `ArrayList` itself is not thread-safe. If many threads update the same list, use a thread-safe value type or synchronize value mutation.
+
+Safer options:
+
+```java
+ConcurrentHashMap<String, CopyOnWriteArrayList<String>> map = new ConcurrentHashMap<>();
+map.computeIfAbsent("items", k -> new CopyOnWriteArrayList<>()).add("A");
+```
+
+Or use counters:
+
+```java
+ConcurrentHashMap<String, LongAdder> counters = new ConcurrentHashMap<>();
+counters.computeIfAbsent("success", k -> new LongAdder()).increment();
+```
+
+#### Iteration behavior
+
+`ConcurrentHashMap` iterators are **weakly consistent**:
+
+- They do not throw `ConcurrentModificationException`.
+- They may reflect some updates made during iteration.
+- They do not freeze the whole map.
+- They are safe to use while other threads update the map.
+
+```java
+for (Map.Entry<String, Integer> entry : map.entrySet()) {
+    System.out.println(entry.getKey() + " = " + entry.getValue());
+}
+```
+
+#### `size()` in concurrent code
+
+When other threads are updating the map, `size()` can be expensive or only momentarily accurate. For very large maps, prefer:
+
+```java
+long count = map.mappingCount();
+```
+
+Use `mappingCount()` when you need a long-sized estimate for a concurrently changing map.
+
+#### When to use `ConcurrentHashMap`
+
+Use it when:
+
+- Multiple threads read and write the same map.
+- You need better performance than `Hashtable` or `Collections.synchronizedMap()`.
+- You need atomic methods like `putIfAbsent()`, `compute()`, and `merge()`.
+- You do not need null keys or null values.
+
+Avoid it when:
+
+- The map is used by only one thread; use `HashMap`.
+- You need sorted keys; use `ConcurrentSkipListMap`.
+- You need to lock multiple operations as one transaction; use explicit synchronization or another design.
 
 ### CopyOnWriteArrayList
 ```java

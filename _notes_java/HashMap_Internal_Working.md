@@ -147,20 +147,112 @@ The internal mechanics of `HashMap` rely entirely on these two methods. That is 
 | Thread-safe | No | Yes | Yes |
 | Null key | 1 allowed | Not allowed | Not allowed |
 | Null value | Multiple allowed | Not allowed | Not allowed |
-| Lock mechanism | None | Per-bucket (Java 8+) | Whole map |
+| Lock mechanism | None | Lock-free reads; per-bin write locks (Java 8+) | Whole map lock |
 | Performance | Best (single thread) | Best (multi-thread) | Slowest |
-| Iterator | Fail-fast | Fail-safe (weakly consistent) | Fail-safe |
+| Iterator | Fail-fast | Weakly consistent | Enumerator not fail-fast; collection-view iterator is fail-fast |
 | Inheritance | AbstractMap | AbstractMap | Dictionary |
 | Since | Java 1.2 | Java 1.5 | Java 1.0 (legacy) |
 
 ---
 
-## 10. How `ConcurrentHashMap` Achieves Thread Safety (Java 8)
+### Why `Hashtable` is slower than `HashMap`
 
-- Uses **CAS (Compare-And-Swap)** operations for empty bucket insertions.
-- Uses `synchronized` block on the individual **bucket head node** for collision chains (not the whole map).
-- Multiple threads can write to **different buckets simultaneously** — this is the key advantage.
-- `size()` uses a `LongAdder`-like mechanism to avoid lock contention.
+`Hashtable` is synchronized at the method level. Most operations lock the entire map object.
+
+```java
+Hashtable<String, Integer> table = new Hashtable<>();
+table.put("a", 1);  // locks the whole table
+table.get("a");     // also locks the whole table
+```
+
+That makes it slower for two reasons:
+
+1. **Single-thread overhead:** Even if only one thread uses it, every operation still pays synchronization cost.
+2. **Multi-thread contention:** If multiple threads use it, all reads and writes are serialized through one lock. A `get()` on key `"a"` can block a `put()` on unrelated key `"z"`.
+
+`HashMap` is faster because it does not synchronize internally:
+
+```java
+Map<String, Integer> map = new HashMap<>();
+map.put("a", 1);  // no internal lock
+map.get("a");     // no internal lock
+```
+
+But `HashMap` is not thread-safe. For shared maps in concurrent code, use `ConcurrentHashMap` instead of `Hashtable`.
+
+---
+
+## 10. How `ConcurrentHashMap` Achieves Thread Safety (Java 8+)
+
+`ConcurrentHashMap` is designed to allow safe concurrent access without locking the entire map.
+
+Key internal ideas:
+
+- Uses **volatile reads** so readers can see safely published nodes.
+- Uses **CAS (Compare-And-Swap)** for operations such as inserting into an empty bucket.
+- Uses `synchronized` only on the affected bucket/bin when a write has to update an existing collision chain or tree bin.
+- Allows multiple threads to write to different buckets at the same time.
+- Uses tree bins for heavily-collided buckets, similar to `HashMap` in Java 8+.
+- Uses counter cells similar to `LongAdder` to reduce contention while maintaining size information.
+- Uses forwarding nodes during resize so multiple threads can help transfer buckets to the new table.
+
+### Why `ConcurrentHashMap` does not allow null
+
+It rejects null keys and null values:
+
+```java
+ConcurrentHashMap<String, Integer> map = new ConcurrentHashMap<>();
+map.put(null, 1);    // NullPointerException
+map.put("a", null);  // NullPointerException
+```
+
+Reason: `get(key)` returning `null` must clearly mean "key is absent". If null values were allowed, a concurrent caller could not reliably distinguish "absent" from "present with null value".
+
+### Atomic compound operations
+
+Avoid manual `get()` then `put()` in concurrent code:
+
+```java
+// Not safe as a compound action on a shared HashMap
+map.put("count", map.getOrDefault("count", 0) + 1);
+```
+
+Use atomic methods:
+
+```java
+ConcurrentHashMap<String, Integer> counts = new ConcurrentHashMap<>();
+
+counts.putIfAbsent("java", 1);
+counts.merge("java", 1, Integer::sum);
+counts.compute("sql", (key, oldValue) -> oldValue == null ? 1 : oldValue + 1);
+counts.computeIfAbsent("spring", key -> 1);
+```
+
+For high-contention counters, use `LongAdder` as the value:
+
+```java
+ConcurrentHashMap<String, LongAdder> counters = new ConcurrentHashMap<>();
+counters.computeIfAbsent("success", key -> new LongAdder()).increment();
+```
+
+### Iterator behavior
+
+`ConcurrentHashMap` iterators are **weakly consistent**:
+
+- They do not throw `ConcurrentModificationException`.
+- They can continue while other threads update the map.
+- They may reflect some, all, or none of the updates made after the iterator was created.
+
+### Important limitation
+
+`ConcurrentHashMap` makes map operations thread-safe, but it does not automatically make mutable values thread-safe.
+
+```java
+ConcurrentHashMap<String, List<String>> map = new ConcurrentHashMap<>();
+map.computeIfAbsent("items", key -> new ArrayList<>()).add("A");
+```
+
+The map operation is safe, but the `ArrayList` stored inside the map is not safe for concurrent mutation. Use a thread-safe value type if many threads update the same value.
 
 ---
 
@@ -255,3 +347,17 @@ map.computeIfAbsent("list", k -> new ArrayList<>()).add("item");
 // merge() — most readable for counters
 map.merge("count", 1, Integer::sum);  // add 1 to existing, or put 1 if absent
 ```
+
+**Q11. Why is `Hashtable` slower than `HashMap`?**
+- `Hashtable` synchronizes most public methods, so every `get()`, `put()`, and `remove()` locks the whole map.
+- This adds overhead even in single-threaded code.
+- In multi-threaded code, all operations are serialized through one lock, so unrelated keys still block each other.
+- `HashMap` does not lock internally, so it is faster but not thread-safe.
+- For modern concurrent code, prefer `ConcurrentHashMap`.
+
+**Q12. Why is `ConcurrentHashMap` faster than `Hashtable` in multi-threaded code?**
+- `Hashtable` uses one object-level lock for the whole map.
+- `ConcurrentHashMap` usually performs reads without locking.
+- Writes lock only the affected bucket/bin when needed.
+- Multiple threads can update different buckets at the same time.
+- Atomic methods like `putIfAbsent()`, `compute()`, and `merge()` avoid unsafe `get()` plus `put()` sequences.

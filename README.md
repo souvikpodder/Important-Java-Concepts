@@ -80,6 +80,10 @@
 
 *[-> Java RegEx & Lambda Expressions](_notes_java/java_regex_and_lambda.md)*
 
+*[-> SQL Server / T-SQL Complete Reference](_notes_others/sql_server_plsql.md)*
+
+*[-> SQL Interview Questions and Trick Questions](_notes_others/sql_interview_questions.md)*
+
 ### PROGRAMS :
 #### [Files and I/O](_programs_java/java_io_networking/input_output)
 
