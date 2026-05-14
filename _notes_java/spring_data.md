@@ -38,6 +38,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
 }
 ```
 
+### 4. CrudRepository vs JpaRepository
+
+While both interfaces are used for data access, they serve different purposes and offer different levels of functionality:
+
+| Feature | `CrudRepository` | `JpaRepository` |
+| :--- | :--- | :--- |
+| **Hierarchy** | Extends `Repository`. Base interface for basic CRUD operations. | Extends `PagingAndSortingRepository` (which extends `CrudRepository`). |
+| **Return Types** | Returns `Iterable` for multiple records (e.g., `findAll()`). | Returns `List` which is usually more convenient. |
+| **Pagination & Sorting** | Not supported directly. | Fully supported via `Pageable` and `Sort` parameters. |
+| **JPA Specifics** | General purpose (can be used for NoSQL data stores like MongoDB). | Provides JPA-specific features like `flush()`, `saveAndFlush()`, `deleteAllInBatch()`. |
+| **Best Use Case** | When you only need basic CRUD operations or are working with non-relational databases. | When using Relational Databases with JPA, and you need advanced features like batching, flushing, pagination, or prefer `List` returns. |
+
 ## Key Features
 
 ### 1. Query Methods
@@ -98,6 +110,11 @@ System.out.println("Total Pages: " + users.getTotalPages());
 System.out.println("Total Elements: " + users.getTotalElements());
 List<User> content = users.getContent();
 ```
+
+**Explanation of `PageRequest.of(...)` parameters:**
+- **`0` (Page Index)**: The zero-based page number to retrieve. `0` fetches the first page, `1` fetches the second page, and so forth.
+- **`10` (Page Size)**: The maximum number of records to retrieve per page. 
+- **`Sort.by("lastName").descending()` (Sorting Criteria)**: Tells the database to sort the result set based on the `lastName` entity property in descending order (Z to A). You can chain `.ascending()` or use multiple sort properties like `Sort.by("lastName").descending().and(Sort.by("firstName").ascending())`. If no sorting is needed, you can omit this argument entirely (e.g., `PageRequest.of(0, 10)`).
 
 ## Spring Data JPA Annotations
 
