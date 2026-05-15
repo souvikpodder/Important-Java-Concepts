@@ -20,6 +20,21 @@ A stream pipeline consists of:
 
 ---
 
+## Types of Streams
+
+When categorized by **Execution Mode**:
+1. **Sequential Streams**: The default stream. Processes elements one-by-one on a single thread. Created via `collection.stream()`.
+2. **Parallel Streams**: Divides data and processes it concurrently across multiple CPU cores using the Fork/Join framework. Created via `collection.parallelStream()`.
+
+When categorized by **Data Type**:
+1. **Object Streams**: Used for reference types (e.g., `Stream<String>`, `Stream<Integer>`).
+2. **Primitive Streams**: Specialized streams to avoid the performance overhead of autoboxing/unboxing primitives to objects. They include:
+   - `IntStream`
+   - `LongStream`
+   - `DoubleStream`
+
+---
+
 ## 1. Creating Streams
 
 You can create streams from various sources.
@@ -194,6 +209,13 @@ Optional<String> first = stream.findFirst();
 
 Parallel streams divide the provided task into many and run them in different threads from the common `ForkJoinPool`, utilizing multiple cores of the processor.
 
+### How it works (The Fork/Join Framework)
+Under the hood, parallel streams use the **`ForkJoinPool.commonPool()`**. 
+- **Fork (Divide):** It recursively splits the data structure into smaller and smaller chunks until they are small enough to be processed sequentially.
+- **Process:** It processes these chunks concurrently across multiple threads. By default, it uses threads equal to your CPU cores minus one (plus the main thread).
+- **Join (Conquer):** It merges the results of all the sub-tasks back together to produce the final output.
+- **Work-Stealing:** The ForkJoinPool uses a "work-stealing" algorithm. If one thread finishes its queue of tasks early, it will steal pending tasks from the bottom of a busy thread's queue, maximizing CPU efficiency.
+
 ```java
 // Creating a parallel stream
 long count = list.parallelStream()
@@ -204,8 +226,11 @@ long count = list.parallelStream()
 stream.parallel().filter(...);
 ```
 
-**Warning:** Only use parallel streams when:
-1. You have a massive dataset.
-2. The operations are independent (no shared state/synchronization needed).
-3. The order of processing does not matter.
-(For small datasets or simple operations, the overhead of creating threads actually makes parallel streams *slower* than sequential streams).
+### ⚠️ The `commonPool` Gotcha
+The `ForkJoinPool.commonPool()` is **shared across your entire JVM application**. If you use a parallel stream to perform a blocking I/O operation (like calling a database or an external API), you will block the threads in the common pool. This will instantly freeze/starve every other parallel stream running anywhere else in your application. 
+
+**Best Practices for Parallel Streams:**
+1. Only use them for massive datasets (small datasets actually run slower in parallel due to the overhead of creating/managing threads).
+2. Only use them for pure CPU-intensive mathematical or data transformation tasks. **Never for I/O.**
+3. Ensure operations are independent (no shared state or synchronization needed).
+4. Ensure the order of processing does not matter.
