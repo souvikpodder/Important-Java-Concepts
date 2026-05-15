@@ -80,9 +80,9 @@
 
 *[-> Java RegEx & Lambda Expressions](_notes_java/java_regex_and_lambda.md)*
 
-*[-> SQL Server / T-SQL Complete Reference](_notes_others/sql_server_plsql.md)*
+*[-> SQL Server / T-SQL Complete Reference](_notes_java/sql_server_plsql.md)*
 
-*[-> SQL Interview Questions and Trick Questions](_notes_others/sql_interview_questions.md)*
+*[-> SQL Interview Questions and Trick Questions](_notes_java/sql_interview_questions.md)*
 
 ### PROGRAMS :
 #### [Files and I/O](_programs_java/java_io_networking/input_output)
@@ -146,7 +146,7 @@
 
 *[-> Searching and Sorting Algorithms](_notes_others/search_sort.md)*
 
-*[-> Tree and Graph Algorithms](_notes_others/tree_graph.md)*
+*[-> Tree and Graph Algorithms](_notes_java/tree_graph.md)*
 
 *[-> Concepts of Dynamic Programming](_notes_others/dp.md)*
 

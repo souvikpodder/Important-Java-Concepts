@@ -29,7 +29,7 @@ The Java Platform Module System (JPMS), introduced in Java 9 (Project Jigsaw), i
 ### [Java Fundamentals and Object Oriented Programming](java_basics_and_oops.md)
 Object-Oriented Programming is a methodology or paradigm to design a program using classes and objects. It simplifies the software development and maintenance. Main Concepts - Inheritance, Polymorphism, Abstraction, Encapsulation.
 
-### [HashMap in Java and its Internal Working](java_collections/HashMap_Internal_Working.md)
+### [HashMap in Java and its Internal Working](HashMap_Internal_Working.md)
 `HashMap` is one of the most popular and frequently used classes in the Java Collections Framework. It implements the `Map` interface and stores data in **Key-Value** pairs.
 
 ### [Collections Framework in Java](java_collections.md)
@@ -77,16 +77,16 @@ Synchronization in java is the capability to control the access of multiple thre
 ### [Low-Level Design (LLD) Patterns (Gang of Four)](lld_design_patterns.md)
 In Low-Level Design (LLD), developers rely heavily on **Design Patterns** to solve recurring software engineering problems. The most famous catalog of these patterns was created by the "Gang of Four" (GoF), who categorized 23 patterns into three main...
 
-### [Microservices Design Patterns (Detailed Guide with Examples)](microservices/Design-Patterns.md)
+### [Microservices Design Patterns (Detailed Guide with Examples)](Design-Patterns-microservice.md)
 Designing a microservices architecture involves solving recurring problems related to integration, data management, reliability, and observability. Here is a comprehensive overview of the essential microservice design patterns with detailed explanati...
 
 ### [Microservices Architecture](microservices.md)
 Microservices (or Microservices Architecture) is an architectural style that structures an application as a collection of weakly coupled, highly cohesive, independently deployable services.
 
-### [Service Discovery Patterns: Kubernetes, Eureka, and Zookeeper](microservices/Service-Discovery-Examples.md)
+### [Service Discovery Patterns: Kubernetes, Eureka, and Zookeeper](Service-Discovery-Examples.md)
 Service Discovery is a mechanism that allows microservices to locate each other on a network without hardcoding IP addresses. Below are examples of how this is handled using Kubernetes, Netflix Eureka, and Apache Zookeeper.
 
-### [Spring Cloud Microservices Patterns](microservices/Spring-Cloud-Patterns.md)
+### [Spring Cloud Microservices Patterns](Spring-Cloud-Patterns.md)
 Detailed guide and examples for implementing API Gateway, Circuit Breaker, and Centralized Logging in a Spring Boot environment.
 
 ### [R2DBC (Reactive Relational Database Connectivity)](r2dbc.md)
@@ -107,3 +107,16 @@ A comprehensive guide to Spring Security, covering core concepts (Authentication
 ### [High-Level Design (HLD) vs Low-Level Design (LLD)](system_design_hld_lld.md)
 System design interviews and software engineering lifecycles are commonly broken down into two major phases: **High-Level Design (HLD)** and **Low-Level Design (LLD)**. Understanding the distinction is crucial for structuring an application effective...
 
+### [Apache ActiveMQ & Spring Boot](activemq.md)
+
+### [JUnit 5 (Jupiter)](junit.md)
+
+### [Apache Kafka & Spring Boot](kafka.md)
+
+### [Spring Data](spring_data.md)
+
+### [SQL Interview Questions and Trick Questions](sql_interview_questions.md)
+
+### [SQL Server Complete Reference](sql_server_plsql.md)
+
+### [Tree Data Structures](tree_graph.md)

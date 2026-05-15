@@ -769,13 +769,25 @@ class A
 
 ## 47) volatile
 
-volatile keyword is used in the concurrent programming. The value of a variable which is declared as volatile will be written into or read from the main memory.
+The `volatile` keyword is used in concurrent programming to solve the memory visibility problem. 
 
+When a variable is declared as `volatile`, it guarantees two things:
+1. **Visibility:** Every read of a volatile variable will be read from the main memory, not from the thread's local CPU cache. Every write to a volatile variable will be written directly to the main memory.
+2. **Prevents Instruction Reordering:** It establishes a "happens-before" relationship, preventing the compiler from reordering instructions in a way that could break the expected logic in a multithreaded environment.
+
+**Important Note:** `volatile` does **not** provide atomicity. For example, `counter++` is a read-modify-write operation, and it is not thread-safe even if `counter` is `volatile`. For atomic operations, you should use `synchronized` blocks or classes like `AtomicInteger`.
 
 ```java
-class A
+class SharedResource 
 {
-    public volatile int counter = 0;
+    // A flag to signal a background thread to stop
+    // Using volatile ensures the background thread immediately sees the change
+    public volatile boolean isRunning = true;
+
+    public void stopRunning() 
+    {
+        isRunning = false;
+    }
 }
 ```
 
