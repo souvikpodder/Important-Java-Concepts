@@ -212,10 +212,97 @@ public class SingletonA {
 ### 3. Circular Dependencies
 **Question:** Class A needs Class B, and Class B needs Class A. What happens?
 **Answer:** 
-* **If configuring via Constructor Injection:** Spring will throw a `BeanCurrentlyInCreationException` on startup and the app crashes. (This is generally the expected behavior to prevent bad design).
-* **If configuring via Field/Setter Injection:** Spring *can* resolve this via a 3-level caching mechanism (early exposing the bean reference before fully initializing it). 
+It depends on **how the dependency is injected** and which Spring Boot version you are using.
 
-*(Note: Starting in Spring Boot 2.6+, circular dependencies are strictly forbidden by default even with Field injection, requiring `spring.main.allow-circular-references=true` to override).*
+**Constructor Injection: Usually fails**
+```java
+@Component
+class A {
+    A(B b) {}
+}
+
+@Component
+class B {
+    B(A a) {}
+}
+```
+
+Spring cannot create either bean first:
+1. Spring starts creating `A`.
+2. `A` needs `B`, so Spring starts creating `B`.
+3. `B` needs `A`, but `A` is still being created.
+4. Spring throws `BeanCurrentlyInCreationException`.
+
+This is usually a good failure because it exposes a design problem early.
+
+**Field/Setter Injection: Older Spring Boot versions could resolve it**
+```java
+@Component
+class A {
+    @Autowired
+    private B b;
+}
+
+@Component
+class B {
+    @Autowired
+    private A a;
+}
+```
+
+In this case, Spring can instantiate `A` first without immediately needing `B` in the constructor. It can then expose an **early reference** to `A`, create `B`, inject the early `A` reference into `B`, and finally inject `B` back into `A`.
+
+Under the hood, Spring uses a **3-level singleton cache**:
+1. **Fully initialized singleton objects**.
+2. **Early singleton objects** that are created but not fully initialized.
+3. **Singleton factories** that can create early references, often needed for proxy/AOP cases.
+
+**Important risk:** one bean may receive another bean before it is fully initialized. This can cause subtle bugs, especially with `@PostConstruct`, AOP proxies, transactions, or complex initialization logic.
+
+**Spring Boot 2.6+ default**
+
+Starting from Spring Boot 2.6, circular references are **disabled by default**, even for field/setter injection.
+
+To allow old behavior:
+```properties
+spring.main.allow-circular-references=true
+```
+
+To keep them disabled:
+```properties
+spring.main.allow-circular-references=false
+```
+
+**Pre-Spring Boot 2.6: How to disable circular dependencies**
+
+In Spring Boot 2.5 and older, circular references were generally allowed by default. To disable them manually, configure the underlying bean factory:
+
+```java
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class DemoApplication {
+
+    public static void main(String[] args) {
+        SpringApplication app = new SpringApplication(DemoApplication.class);
+
+        app.addInitializers(context -> {
+            ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
+            if (beanFactory instanceof DefaultListableBeanFactory) {
+                ((DefaultListableBeanFactory) beanFactory)
+                        .setAllowCircularReferences(false);
+            }
+        });
+
+        app.run(args);
+    }
+}
+```
+
+**Best fix:** refactor the design. If `A` and `B` both need each other, extract the shared responsibility into a third bean, for example `C`, and make both `A` and `B` depend on `C` instead.
 
 ### 4. Bean Initialization Lifecycle Order
 **Question:** If a Spring bean implements `InitializingBean`, has a method with `@PostConstruct`, and has a custom `initMethod` defined, in what order do they execute?
