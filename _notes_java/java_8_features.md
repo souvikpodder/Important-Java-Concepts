@@ -354,10 +354,10 @@ fetchingData
 
 // The main thread can do other work here while the CompletableFuture handles the rest in the background
 System.out.println("Main thread is not blocked!");
-
+```
 ---
 
-## Interview Questions — Java 8 Features
+## 10. Interview Questions — Java 8 Features
 
 **Q1. What is a functional interface? Can it have other methods?**
 - A functional interface has exactly **one abstract method** (SAM — Single Abstract Method).

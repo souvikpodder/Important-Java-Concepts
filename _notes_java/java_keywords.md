@@ -1,21 +1,50 @@
-# All 50 Java Keywords with Examples
+# Java Keywords and Contextual Keywords Reference (Up to Java 25)
 
-Table below lists 48 Keywords in Java; excluding the keywords goto and const because they are not used.
+In Java, there is a distinction between **Reserved Keywords** (which can never be used as identifiers) and **Contextual Keywords** (which have a special meaning only in specific contexts, but can be used as identifiers elsewhere).
 
-<!--![keywords-in-java](https://user-images.githubusercontent.com/2780145/34911899-785e9aa8-f8f9-11e7-8970-87ebd9e02574.jpg)-->
+---
 
-| <!-- -->    | <!-- -->    | <!-- -->    | <!-- -->    | <!-- -->    |
-|-------------|-------------|-------------|-------------|-------------|
-|abstract|default|if|private|this|
-|assert|do|implements|protected|throw|
-|boolean|double|import|public|throws|
-|break|else|instanceof|return|transient|
-|byte|enum|int|short|try|
-|case|extends|interface|static|void|
-|catch|final|long|strictfp|volatile|
-|char|finally|native|super|while|
-|class|float|new|switch|-|
-|continue|for|package|synchronized|-|
+### 1. Reserved Keywords (51 Keywords)
+As of Java 25, there are **51 reserved keywords**. This includes `_` (underscore, reserved in Java 9), and `goto`/`const` (which are reserved but unused).
+
+| <!-- --> | <!-- --> | <!-- --> | <!-- --> | <!-- --> | <!-- --> |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `abstract` | `assert` | `boolean` | `break` | `byte` | `case` |
+| `catch` | `char` | `class` | `const`* | `continue` | `default` |
+| `do` | `double` | `else` | `enum` | `extends` | `final` |
+| `finally` | `float` | `for` | `goto`* | `if` | `implements` |
+| `import` | `instanceof` | `int` | `interface` | `long` | `native` |
+| `new` | `package` | `private` | `protected` | `public` | `return` |
+| `short` | `static` | `strictfp` | `super` | `switch` | `synchronized` |
+| `this` | `throw` | `throws` | `transient` | `try` | `void` |
+| `volatile` | `while` | `_`* (Java 9+) | | | |
+
+*\*Note: `const` and `goto` are reserved but not used. `_` (single underscore) is a reserved keyword since Java 9 and is used for unnamed patterns and variables since Java 22.*
+
+---
+
+### 2. Contextual Keywords (17 Keywords)
+These function as keywords only in specific syntactic positions (e.g., in a module declaration or sealed class definition) to preserve backward compatibility.
+
+| Keyword | Introduced In | Description |
+| :--- | :--- | :--- |
+| `exports` | Java 9 | Declares package export in `module-info.java` |
+| `module` | Java 9 | Declares a module in `module-info.java` |
+| `open` | Java 9 | Declares an open module or package |
+| `opens` | Java 9 | Opens a package for deep reflection |
+| `provides` | Java 9 | Declares a service provider implementation |
+| `requires` | Java 9 | Declares a module dependency |
+| `to` | Java 9 | Restricts exports/opens to specific modules |
+| `transitive` | Java 9 | Declares transitive module dependencies |
+| `uses` | Java 9 | Declares a service interface dependency |
+| `with` | Java 9 | Specifies service implementation class |
+| `var` | Java 10 | Local variable type inference |
+| `yield` | Java 14 | Returns a value from a switch expression |
+| `record` | Java 16 | Declares a record class (immutable DTO) |
+| `non-sealed` | Java 17 | Declares a class/interface open for extension in a sealed hierarchy |
+| `permits` | Java 17 | Declares allowed subclasses in a sealed hierarchy |
+| `sealed` | Java 17 | Restricts subclasses inheriting from class/interface |
+| `when` | Java 21 | Specifies guard conditions in pattern matching switch cases |
 
 ## 1) abstract
 
@@ -171,15 +200,16 @@ for (int i = 0; i <= 100; i++)
 
 ## 14) default
 
-default keyword is used to define the default methods in an interface (From Java 8). default keyword is also used in the switch-case statements.
-
+The `default` keyword is used in two ways:
+1. In `switch-case` statements as the default fallback branch.
+2. To define default method implementations within interfaces (**introduced in Java 8**).
 
 ```java
 interface MyInterface 
 {
     public default void myDefaultMethod() 
     {
-        System.out.println("Default Method");
+        System.out.println("Default Method (Java 8)");
     }
 }
 ```
@@ -580,25 +610,17 @@ public class MainClass
 
 ## 39) strictfp
 
-strictfp keyword is used to implement the strict precision of floating point calculations on different platforms. strictfp can be used with classes, interfaces and methods.
+The `strictfp` keyword was historically used to ensure that floating-point calculations had strict precision (IEEE 754 standards) across all platforms. 
 
+> [!NOTE]
+> **Obsolete in Java 17:** Since **Java 17** (via JEP 306), the JVM evaluates all floating-point operations strictly by default. The `strictfp` keyword is now obsolete/redundant and has no effect, although it remains a reserved keyword for backward compatibility.
 
 ```java
-strictfp interface I
+// strictfp is now redundant but still legal to compile
+strictfp class LegacyPrecisionClass
 {
-    //strictfp applied on interface
-}
- 
-strictfp class C
-{
-    //strictfp applied on class
-}
- 
-class A
-{
-    strictfp void method()
-    {
-        //strictfp applied on method
+    double calculate(double a, double b) {
+        return a * b;
     }
 }
 ```
@@ -807,8 +829,130 @@ while (i <= 100)
 }
 ```
 
-## 49) goto        50) const
+## 49) _ (Underscore)
 
-Both goto and const are reserved words in java but they are currently not used.
+The single underscore `_` is a reserved keyword in Java.
 
-**Note :** true, false and null are not the keywords. They are literals in java.
+> [!IMPORTANT]
+> **Keyword since Java 9:** In **Java 9**, the single underscore `_` was turned into a reserved keyword and could no longer be used as a variable or method identifier.
+> 
+> **Unnamed Variables and Patterns in Java 22:** In **Java 22** (following preview in **Java 21**), the underscore was finalized as the official syntax for **unnamed variables and patterns**. It acts as a placeholder when a variable declaration is syntactically required but its value is never used.
+
+```java
+// Example 1: Unused Exception in Catch Block (Java 22+)
+try {
+    int num = Integer.parseInt("abc");
+} catch (NumberFormatException _) { // No need to declare a variable name like 'ex'
+    System.out.println("Failed to parse integer");
+}
+
+// Example 2: Unused Lambda Parameter (Java 22+)
+map.forEach((_, value) -> System.out.println("Value: " + value));
+```
+
+## 50) goto        51) const
+
+Both `goto` and `const` are reserved keywords in Java, but they are not used by the language. Declaring them will result in compile-time errors. They were reserved to prevent developers from using them if future versions of Java decided to implement them.
+
+**Note:** `true`, `false`, and `null` are not keywords. They are literals in Java.
+
+---
+
+# Contextual Keywords (Special Syntax Keywords)
+
+Unlike reserved keywords, contextual keywords are only treated as keywords in specific places in the code. This ensures backward compatibility.
+
+## 1) var
+
+The `var` keyword is used for local variable type inference (**introduced in Java 10**). The compiler automatically infers the data type of the variable based on the value assigned to it. It can only be used for local variables.
+
+```java
+// The compiler infers that 'message' is of type String
+var message = "Hello, Java!"; 
+
+// Equivalent to: List<String> list = new ArrayList<>();
+var list = new ArrayList<String>(); 
+```
+
+## 2) yield
+
+The `yield` keyword is used to return a value from a `switch` expression block (**introduced in Java 14** after previewing in **Java 12**).
+
+```java
+int day = 3;
+String dayType = switch (day) {
+    case 1, 2, 3, 4, 5 -> "Weekday";
+    case 6, 7          -> "Weekend";
+    default            -> {
+        System.out.println("Processing invalid day...");
+        yield "Invalid Day"; // yield returns value from block
+    }
+};
+```
+
+## 3) record
+
+The `record` keyword is used to declare record classes, which are concise data carrier classes (**introduced in Java 16** after previewing in **Java 14**). It automatically generates final fields, a constructor, getters, `equals()`, `hashCode()`, and `toString()`.
+
+```java
+// Declaring a record (Java 16+)
+public record User(int id, String name) {}
+
+// Usage
+User user = new User(1, "Alice");
+System.out.println(user.name()); // "Alice"
+```
+
+## 4) sealed, permits, non-sealed
+
+These three keywords are used to strictly define and control class/interface inheritance (**introduced in Java 17** after previewing in **Java 15**).
+*   `sealed`: Specifies that only permitted classes can extend this class/interface.
+*   `permits`: Lists the subclasses permitted to extend the sealed class.
+*   `non-sealed`: Declares a subclass as open for extension by any other class (re-opening the hierarchy).
+
+```java
+// Sealed class definition (Java 17+)
+public sealed class Shape permits Circle, Rectangle {}
+
+// Permitted subclass must be final, sealed, or non-sealed
+public final class Circle extends Shape {}
+
+// non-sealed subclass can be extended by any class
+public non-sealed class Rectangle extends Shape {}
+```
+
+## 5) when
+
+The `when` keyword is used in pattern matching `switch` cases to declare boolean guard conditions (**introduced in Java 21** after previewing in **Java 19**).
+
+```java
+public String testValue(Object obj) {
+    return switch (obj) {
+        // 'when' guard condition restricts the match (Java 21+)
+        case String s when s.length() > 5 -> "Long string: " + s;
+        case String s -> "Short string: " + s;
+        default -> "Not a string";
+    };
+}
+```
+
+## 6) Module Keywords (module, requires, exports, opens, uses, provides, with, to, open, transitive)
+
+These contextual keywords are used to define modules in the module descriptor file `module-info.java` (**introduced in Java 9**).
+
+```java
+// module-info.java example (Java 9+)
+open module my.custom.module {
+    // Requires another module's public APIs
+    requires transitive java.sql; 
+
+    // Exports a package to specific modules
+    exports com.mycompany.app to com.mycompany.helper;
+
+    // Opens a package for reflection
+    opens com.mycompany.internal;
+
+    // Provides a service implementation
+    provides com.mycompany.service.MyService with com.mycompany.service.impl.MyServiceImpl;
+}
+```

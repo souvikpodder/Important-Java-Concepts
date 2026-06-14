@@ -26,6 +26,9 @@ The Java Platform Module System (JPMS), introduced in Java 9 (Project Jigsaw), i
 ### [Async Programming in Java â€” Complete Notes](java_async_programming.md)
 - [Creating CompletableFutures](#creating-completablefutures)
 
+### [Asynchronous vs. Multithreading in Java (with the Java 21 Shift)](java_async_vs_multithreading.md)
+A comprehensive guide comparing the concepts of async and multithreading, explaining task-centric vs. worker-centric execution, and showcasing how Java 21's Virtual Threads (Project Loom) merge both paradigms.
+
 ### [Java Fundamentals and Object Oriented Programming](java_basics_and_oops.md)
 Object-Oriented Programming is a methodology or paradigm to design a program using classes and objects. It simplifies the software development and maintenance. Main Concepts - Inheritance, Polymorphism, Abstraction, Encapsulation.
 
