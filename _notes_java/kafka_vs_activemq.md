@@ -57,7 +57,60 @@ Kafka is a distributed event streaming platform designed for high throughput, fa
 - You want consumers to be able to **replay messages** from the past.
 - Multiple independent downstream systems (Consumer Groups) need to read the exact same stream of data at their own pace without affecting each other.
 
-## 5. What is Prefetch?
+## 5. Routing, Filtering, and Prioritization
+
+Traditional brokers like ActiveMQ excel at routing and filtering messages out-of-the-box, whereas Kafka delegates these responsibilities to the consumer or separate stream processing applications.
+
+### 5.1 Complex Message Routing (Content-Based Routing)
+- **ActiveMQ:** Can route messages to different queues based on message content or headers using built-in features (like Apache Camel integration). 
+- **Kafka:** Topics act as "dumb pipes." To route based on content, you must write a separate application (e.g., Kafka Streams) to consume from one topic, apply logic, and produce to another.
+
+### 5.2 Filtering Based on Headers (JMS Selectors)
+- **ActiveMQ:** Consumers can specify a "JMS Selector" (similar to a SQL `WHERE` clause). The broker filters messages on the server side, so the consumer only receives matching messages.
+- **Kafka:** A consumer must read every message in a partition. If it only wants specific messages, it must download all of them and discard the unwanted ones in the application code.
+
+#### Coding Example: JMS Selector in ActiveMQ
+```java
+// ActiveMQ Consumer requesting only urgent messages
+Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+Queue queue = session.createQueue("OrdersQueue");
+
+// The selector string filters messages on the broker side
+String selector = "priority = 'URGENT'"; 
+MessageConsumer consumer = session.createConsumer(queue, selector);
+
+consumer.setMessageListener(new MessageListener() {
+    public void onMessage(Message message) {
+        System.out.println("Received urgent order: " + message);
+    }
+});
+```
+
+#### Coding Example: Manual Filtering in Kafka
+```java
+// Kafka Consumer must read everything and filter locally
+KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
+consumer.subscribe(Collections.singletonList("orders-topic"));
+
+while (true) {
+    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+    for (ConsumerRecord<String, String> record : records) {
+        // Checking headers (introduced in Kafka 0.11)
+        Header priorityHeader = record.headers().lastHeader("priority");
+        if (priorityHeader != null && new String(priorityHeader.value()).equals("URGENT")) {
+            System.out.println("Processing urgent order: " + record.value());
+        } else {
+            // Must manually discard unwanted messages
+        }
+    }
+}
+```
+
+### 5.3 Message Prioritization
+- **ActiveMQ:** Supports message priority (0-9). The broker dynamically reorders messages in the queue so high-priority messages jump to the front and are consumed first.
+- **Kafka:** Strictly an append-only log providing FIFO (First In, First Out) ordering within a partition. It cannot reorder messages. For priority handling in Kafka, you typically need separate topics (e.g., `high-priority-orders` and `low-priority-orders`) and must configure consumers to poll the high-priority topic first.
+
+## 6. What is Prefetch?
 
 **Prefetch** is a performance optimization technique used in messaging systems to increase the throughput of message consumption by reducing network round-trips.
 
@@ -75,11 +128,11 @@ Instead of a consumer requesting and receiving exactly one message, processing i
 - **Example:** A consumer polls the broker and says, "Give me up to 500 records." The consumer then processes these 500 records locally before going back to the broker for more.
 - **Benefit:** This significantly reduces the overhead of network requests and allows for high-throughput batch processing.
 
-## 6. Advanced Messaging Concepts
+## 7. Advanced Messaging Concepts
 
 To truly master these systems, it is important to understand how they handle advanced scenarios like guarantees, failures, and persistence.
 
-### 6.1 Message Delivery Guarantees (Semantics)
+### 7.1 Message Delivery Guarantees (Semantics)
 
 Both systems deal with the problem of "What happens if a message is lost or duplicated?". There are three main delivery semantics:
 
@@ -89,7 +142,7 @@ Both systems deal with the problem of "What happens if a message is lost or dupl
    - **ActiveMQ:** Achieves this locally using JMS Distributed Transactions (XA), but it carries a high performance penalty.
    - **Kafka:** Achieves this within its ecosystem using Kafka Transactions (useful when reading from Kafka, processing, and writing back to Kafka natively).
 
-### 6.2 Acknowledgments (ACKs) vs Offsets
+### 7.2 Acknowledgments (ACKs) vs Offsets
 
 How does the broker know a message was successfully processed?
 
@@ -101,14 +154,14 @@ How does the broker know a message was successfully processed?
   - If a consumer crashes, a new consumer takes over and resumes reading from the last committed offset.
   - *Auto-commit* vs *Manual commit* dictates whether offsets are saved automatically on a timer or explicitly by the application code after processing.
 
-### 6.3 Dead Letter Queues (DLQ)
+### 7.3 Dead Letter Queues (DLQ)
 
 What happens when a message is repeatedly redelivered (e.g., due to a bug in the consumer) but keeps failing? You don't want it to block the queue forever (a "poison pill").
 
 - **ActiveMQ:** Has **native, automatic** support for Dead Letter Queues. If a message is redelivered `X` times (configured via redelivery policies) and still fails, ActiveMQ automatically moves it to a special queue (usually named `ActiveMQ.DLQ`). An administrator can later inspect this queue, fix the bug, and re-inject the messages.
 - **Kafka:** Does **not** have native DLQs built-in. If a message fails, the consumer gets stuck because it cannot commit its offset past the failing message. To implement a DLQ in Kafka, the developer must write explicit code: wrap the processing block in a try-catch, and if it fails, publish the bad message to a separate "error topic" yourself, then commit the offset on the main topic so processing can continue past the poison pill.
 
-### 6.4 Message Durability & Persistence
+### 7.4 Message Durability & Persistence
 
 What happens to messages if the broker server crashes and reboots?
 

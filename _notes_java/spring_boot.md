@@ -1679,3 +1679,27 @@ class ProductService {
 ```
 - Default cache: `ConcurrentHashMap` (in-memory, JVM-local).
 - For distributed caching: use Redis with `spring-boot-starter-data-redis`.
+
+## 1000 Database Connections Management
+Managing 1000 concurrent database connections in a Spring Boot application requires careful tuning to prevent resource exhaustion and bottlenecks.
+1. **Connection Pooling:** Use an efficient connection pool like **HikariCP** (Spring Boot's default). Do NOT create new connections for every request. Configure `maximum-pool-size` optimally. Setting the pool size to 1000 is generally a bad idea because databases perform best with a smaller number of active connections (due to context switching overhead).
+2. **Formula for Pool Size:** `connections = ((core_count * 2) + effective_spindle_count)`. A pool size of around 10-50 per instance is usually enough for most applications.
+3. **Database Proxy / Multiplexing:** Use a proxy like **PgBouncer** (for PostgreSQL) or **ProxySQL** (for MySQL). The proxy manages thousands of connections from clients but multiplexes them over a much smaller number of actual connections to the database.
+4. **Horizontal Scaling:** Deploy multiple instances of the Spring Boot application and configure a smaller connection pool (e.g., 20) per instance rather than one giant pool in a single instance.
+5. **Database Configuration:** Increase the database server's `max_connections` property to handle the proxy's connections or direct connections from scaled instances.
+6. **Query Tuning:** Optimize slow queries and ensure proper indexing so connections are returned to the pool as fast as possible.
+
+## Spring Boot Distributed Tracing (Tracking a request across services)
+To track a single request as it flows through multiple microservices, Spring Boot uses **Distributed Tracing**. 
+Historically, this was done using **Spring Cloud Sleuth** and **Zipkin**. Starting with Spring Boot 3, Sleuth has been replaced by **Micrometer Tracing**.
+
+1. **Trace ID and Span ID:**
+   - **Trace ID:** A unique identifier generated when a request first enters the system. It remains the same across all microservices involved in fulfilling that request.
+   - **Span ID:** A unique identifier for a specific unit of work (e.g., a single microservice processing the request). Each service creates a new Span ID, but shares the same Trace ID.
+2. **How it works:**
+   - When a request arrives, Micrometer Tracing (or Sleuth) intercepts it and injects a Trace ID and Span ID into the HTTP headers (e.g., `X-B3-TraceId`, `X-B3-SpanId`) and the logging context (MDC - Mapped Diagnostic Context).
+   - This ensures that every log statement produced by any service for that request includes the Trace ID.
+   - You can easily search your centralized logging system (like ELK stack or Splunk) using the Trace ID to see the entire lifecycle of the request.
+3. **Zipkin / Jaeger (Visualization):**
+   - Tracing data is sent asynchronously to a tracing server like **Zipkin** or **Jaeger**.
+   - These tools provide a UI to visualize the request flow, showing exactly how much time was spent in each service (latency analysis) and identifying bottlenecks or failures.

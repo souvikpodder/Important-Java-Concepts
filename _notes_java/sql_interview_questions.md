@@ -1471,3 +1471,13 @@ In application code, use prepared statements or parameterized queries.
 | Best way to get nth salary with ties? | `DENSE_RANK()` |
 | Is result order guaranteed without `ORDER BY`? | No |
 
+## Strong vs Weak Entities (Tables)
+In relational databases, tables can represent **Strong Entities** or **Weak Entities**.
+1. **Strong Entity (Strongly Backed Table):** 
+   - An entity that exists independently of other entity types. 
+   - It has its own primary key that uniquely identifies its records.
+   - Example: A `Customer` table with a `CustomerID` primary key. The customer exists regardless of whether they have placed an order.
+2. **Weak Entity (Weakly Backed Table):** 
+   - An entity that cannot be uniquely identified by its attributes alone and depends on a strong entity for its existence.
+   - Its primary key is formed by combining its own attributes (called a discriminator) with the primary key of the strong entity it relates to (foreign key).
+   - Example: An `OrderItem` table. An `OrderItem` cannot exist without an `Order`. If the `Order` is deleted, the `OrderItem` must also be deleted (cascade delete). Its primary key would be a combination of `OrderID` (foreign key) and `ItemID`.

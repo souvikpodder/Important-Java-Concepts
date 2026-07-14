@@ -1270,3 +1270,7 @@ EnumSet<Day> weekend = EnumSet.complementOf(weekdays);
 **Q12. What is `Collections.unmodifiableList()` vs `List.of()` (Java 9+)?**
 - `unmodifiableList()`: wraps a mutable list — the underlying list can still change if someone holds a reference to it.
 - `List.of()`: truly immutable — no way to modify it, throws `UnsupportedOperationException` on any write attempt. Also doesn't allow `null` elements.
+
+**Q13. What is the difference between Fail-Safe and Fail-Fast Iterators?**
+- **Fail-Fast Iterators:** Throw `ConcurrentModificationException` immediately if the collection is structurally modified during iteration (e.g., `ArrayList`, `HashMap`, `HashSet`). They operate directly on the original collection and track modifications using a `modCount` variable.
+- **Fail-Safe Iterators:** Do NOT throw exceptions if the collection is modified while iterating (e.g., `ConcurrentHashMap`, `CopyOnWriteArrayList`). They operate on a clone/copy of the underlying collection, so modifications are not reflected in the iterator.
