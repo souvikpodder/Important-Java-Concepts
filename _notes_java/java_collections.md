@@ -1135,7 +1135,6 @@ for (String s : list) {
 }
 ```
 **Use when:** Reads are far more frequent than writes (e.g., event listener lists).
-
 ---
 
 ## Fail-Fast vs Fail-Safe Iterators
@@ -1159,10 +1158,23 @@ while (it.hasNext()) {
 list.removeIf(s -> s.equals("b"));
 ```
 
-### Fail-Safe (ConcurrentHashMap, CopyOnWriteArrayList)
-- Works on a snapshot of the collection — modifications don't affect ongoing iteration.
+### Fail-Safe / Weakly Consistent (ConcurrentHashMap, CopyOnWriteArrayList)
 - Does NOT throw `ConcurrentModificationException`.
-- May not reflect the latest state of the collection.
+- May not reflect the latest state of the collection if modified during iteration.
+
+**How they work internally:**
+
+1. **`CopyOnWriteArrayList` (True Snapshot)**
+   - Achieves safety by literally **copying the underlying array** on every write operation (`add()`, `set()`, `remove()`).
+   - The Iterator gets a reference to the exact array that existed at the moment of its creation. 
+   - Since modifications happen on a brand-new array, the iterator safely traverses the old data without interference.
+   - **Trade-off:** Memory-intensive and slow for writes, but very fast and safe for reads.
+
+2. **`ConcurrentHashMap` (Weakly Consistent)**
+   - **Does not** create a full snapshot (which would be too slow/memory intensive). Instead, it relies on complex thread-safe node structures and atomic operations.
+   - The iterator walks through the actual data structure in real-time.
+   - If a node is updated or removed while iterating, lock-free atomic adjustments ensure the iterator doesn't crash or get stuck.
+   - It guarantees it will process all elements that existed when the iterator started exactly once, but it *may or may not* process elements that are added during the iteration.
 
 ---
 
@@ -1190,6 +1202,7 @@ Collections.swap(nums, 0, 3);              // swap elements at indexes 0 and 3
 ---
 
 ## Interview Questions — Collections Framework
+
 
 **Q1. What is the difference between `ArrayList` and `LinkedList`? When to use which?**
 - **ArrayList**: backed by a dynamic array. O(1) random access, O(n) insert/delete in middle.
