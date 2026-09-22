@@ -228,6 +228,39 @@ counts.compute("sql", (key, oldValue) -> oldValue == null ? 1 : oldValue + 1);
 counts.computeIfAbsent("spring", key -> 1);
 ```
 
+#### Deep Dive: How `Map.merge()` Works
+
+`map.merge(key, value, remappingFunction)` is a default method on `Map` (introduced in Java 8) providing a clean, thread-safe (in `ConcurrentHashMap`) way to initialize or combine values:
+
+```java
+default V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction)
+```
+
+**Execution logic:**
+1. **If key is absent (or mapped to `null`):** Associates `key` directly with `value`. The `remappingFunction` is **not** called.
+2. **If key is present with a non-null value:** Executes `remappingFunction.apply(oldValue, value)`.
+   - If the function returns a **non-null** result $\rightarrow$ updates the key with the result.
+   - If the function returns **`null`** $\rightarrow$ **removes** the key from the map.
+
+**Common use cases:**
+- **Word / Frequency Counter:**
+  ```java
+  // Replaces: map.put(word, map.getOrDefault(word, 0) + 1);
+  map.merge(word, 1, Integer::sum);
+  ```
+- **String Concatenation / Log Aggregation:**
+  ```java
+  notes.merge("Alice", "Logged in", (oldVal, newVal) -> oldVal + " | " + newVal);
+  ```
+- **Conditional Eviction (return `null` to remove):**
+  ```java
+  // If count drops to 0 or less, returning null removes the key automatically
+  stock.merge("Apples", 1, (oldQty, sold) -> (oldQty - sold <= 0) ? null : oldQty - sold);
+  ```
+
+> [!NOTE]
+> On a `ConcurrentHashMap`, `merge()` executes **atomically** per bin/bucket lock, eliminating check-then-act race conditions without manual synchronization blocks.
+
 For high-contention counters, use `LongAdder` as the value:
 
 ```java
