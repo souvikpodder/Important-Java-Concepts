@@ -61,7 +61,7 @@ Java is a **programming language** and a **platform**.
   
 - **Multi-threaded:**
   - A thread is like a separate program, executing concurrently. We can write Java programs that deal with many tasks at once by defining multiple threads.
-  - The main advantage of multi-threading is that it doesn't occupy memory for each thread. It shares a common memory area.
+  - Threads share the heap, but each thread has its own execution state and logical call stack, so creating threads still consumes memory.
   - Threads are important for multi-media, Web applications etc.
   
 - **Dynamic:**
@@ -113,3 +113,250 @@ JVM (Java Virtual Machine) has various sub components internally. You can see th
   - **Interpreter:** Read bytecode stream then execute the instructions.
   - **Virtual processor** 
   - **NOTE -** JVM uses optimization technique to decide which part to be interpreted and which part to be used with JIT compiler.
+
+## Stack vs Heap: Data Structures and Internal Working
+
+The stack organizes active method calls, while the heap stores objects and arrays whose lifetimes can extend beyond a method call. A method stack follows **last in, first out (LIFO)**; the memory heap is a managed allocation area, not the binary-heap data structure used by a priority queue.
+
+### 1. Stack Frames and Method Calls
+
+Each thread has its own logical JVM stack. Every method invocation creates a frame containing local-variable slots, an operand stack, and information supporting execution and return. Frames are removed when invocations complete normally or unwind because of an exception. These are logical runtime structures; the specification does not require contiguous physical storage. See [JVM stacks and frames](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html#jvms-2.6).
+
+| Frame component | Purpose |
+|---|---|
+| Local-variable slots | Hold parameters and local values, including object references |
+| Operand stack | Holds intermediate values while bytecode evaluates expressions and invokes methods |
+| Runtime bookkeeping | Supports linking, returning to the caller, and exception handling |
+
+Consider these methods inside a class:
+
+```java
+static void mainTask() {
+    int result = add(10, 20);
+    System.out.println(result);
+}
+
+static int add(int a, int b) {
+    int sum = a + b;
+    return sum;
+}
+```
+
+1. **Enter the caller.** Invoking `mainTask()` creates its frame, with a slot for `result`.
+2. **Call the nested method.** Invoking `add(10, 20)` creates another frame, whose parameters hold `a = 10` and `b = 20`. The caller waits underneath it.
+3. **Calculate the result.** The callee evaluates the addition using its operand stack and stores 30 in `sum`.
+4. **Return to the caller.** The `add()` frame is removed and its result is passed back. The caller stores 30 in `result` and continues.
+
+```text
+TOP: currently executing
++---------------------------+
+| add() frame               |
+| a = 10, b = 20, sum = 30   |
++---------------------------+
+| mainTask() frame          |
+| waiting for add()         |
++---------------------------+
+BOTTOM
+```
+
+This is LIFO because the most recently called method completes before its caller resumes normally. Recursion creates a separate frame for every invocation, even though each invocation executes the same method's code.
+
+### 2. The Operand Stack Inside a Frame
+
+The thread's method stack tracks calls; a frame's operand stack evaluates expressions within one call. For `int sum = a + b`, the relevant bytecode operations behave conceptually as follows:
+
+| Operation | Operand stack, bottom to top |
+|---|---|
+| Load `a` | `[10]` |
+| Load `b` | `[10, 20]` |
+| Add the top two values | `[30]` |
+| Store the result in `sum` | `[]` |
+
+Local-variable slots support indexed access; they are not themselves a LIFO collection. The operand stack holds temporary results, while local slots retain values that later instructions can reload. The JIT can translate this model into machine instructions using registers instead of literally pushing every intermediate value into memory.
+
+### 3. The Memory Heap Is Not a Binary Heap
+
+Heap objects have independent lifetimes. An object created first can become unreachable before a newer object, so reclaiming objects cannot simply follow reverse allocation order.
+
+```java
+Person first = new Person(25);
+Person second = new Person(30);
+first = null;
+// The first object may now be unreachable while second is still needed.
+```
+
+The two meanings of heap should be kept separate:
+
+| Term | Structure and purpose |
+|---|---|
+| JVM memory heap | Managed memory used to allocate objects and arrays |
+| Binary heap | A complete binary tree, commonly stored in an array, maintaining a min/max ordering rule |
+
+Java's `PriorityQueue` uses a binary heap, and its backing array is itself allocated in the JVM memory heap. The priority-queue structure does not describe how the JVM arranges all application objects. See the separate [heap data-structure notes](tree_graph.md#12-heap).
+
+### 4. How Object Allocation Works
+
+For `Person person = new Person(25)`, the JVM conceptually obtains storage, initializes the object, and supplies a reference. Storage includes implementation-specific object metadata, instance fields, and alignment. Fields receive default values before instance initializers and constructor logic establish the intended state.
+
+Common JVM implementations can allocate small objects from a **thread-local allocation buffer (TLAB)** within the shared heap. When sufficient space exists, allocation mainly advances a pointer:
+
+```text
+Before:
+[ Existing objects ][              Free space              ]
+                    ^ allocation pointer
+
+After:
+[ Existing objects ][ New object ][       Free space       ]
+                                  ^ allocation pointer
+```
+
+This avoids coordinating with other threads for every small allocation. Refilling a buffer, handling a large object, or running out of available space takes another path. A TLAB is an allocation optimization, not a rule that its objects must remain private to the allocating thread.
+
+The exact allocator, object layout, and collection strategy depend on the JVM. Do not describe the entire heap as one fixed array, tree, or linked list with a universal allocation algorithm.
+
+### 5. References and Objects Have Different Lifetimes
+
+This complete example shows an object surviving the method that creates it:
+
+```java
+public class MemoryExample {
+    static class Person {
+        int age;
+
+        Person(int age) {
+            this.age = age;
+        }
+    }
+
+    static Person createPerson() {
+        Person p = new Person(25);
+        return p;
+    }
+
+    public static void main(String[] args) {
+        Person person = createPerson();
+        System.out.println(person.age); // 25
+
+        Person alias = person;
+        alias.age = 30;
+        System.out.println(person.age); // 30
+    }
+}
+```
+
+During creation, the local reference points from the callee's frame to the object:
+
+```text
+THREAD STACK                        HEAP
++----------------------+
+| createPerson()       |
+| p -------------------+----------> Person { age = 25 }
++----------------------+
+| main() waiting       |
++----------------------+
+```
+
+After return, the caller holds the reference and the callee's frame is gone:
+
+```text
+THREAD STACK                        HEAP
++----------------------+
+| main()               |
+| person --------------+----------> Person { age = 25 }
++----------------------+
+```
+
+Returning the reference does not copy the object or move it from stack to heap. Assigning `alias = person` also copies only the reference, so modifying `alias.age` changes the same object observed through `person`.
+
+Java passes arguments by value, including reference values. A callee can mutate an object through a copied reference, but assigning that parameter to a different object does not reassign the caller's variable.
+
+### 6. Garbage Collection and Reachability
+
+A tracing garbage collector follows references from roots to determine which objects remain reachable. Examples of roots or root paths include live references associated with executing threads and static references of live classes. Once no such path reaches an object, it is eligible for reclamation.
+
+```text
+GC root --> Object A --> Object B      Reachable: retained
+
+            Object C <--> Object D    Unreachable: collectible
+```
+
+C and D can be collected even though they reference each other, because that cycle has no path from a root. Counting references alone would not explain this behavior.
+
+Setting one variable to `null` does not immediately free its object: another reference may still reach it, and collection is scheduled separately. Likewise, Java can have memory leaks when a long-lived collection keeps retaining objects the application no longer needs. Those objects remain reachable, so the collector cannot infer that they should be discarded.
+
+Some collectors organize memory into generations or regions and move surviving objects to reclaim contiguous space. The layout and algorithm vary; generation names and collection phases are not universal properties of every JVM heap.
+
+### 7. Why Stack and Heap Have Different Cleanup Costs
+
+A frame has a structured lifetime tied to one invocation, so it can be discarded when that invocation finishes. An object may be referenced by many methods, objects, or threads, so its reclaimability depends on reachability instead.
+
+| Aspect | Stack | Heap |
+|---|---|---|
+| Logical organization | LIFO method frames | Managed allocation areas containing objects |
+| Lifetime | Method invocation | Object reachability |
+| Reclamation | Return or exception unwinding removes frames | Garbage collection reclaims eligible objects |
+| Ownership | Each thread has its own call state | Objects can be shared across threads |
+| Typical cost | Frame management is usually cheap | Allocation can be cheap; garbage collection is separate work |
+
+Avoid saying that stack access is always fast and heap access is always slow. A heap allocation can be a pointer increment, and reading a field through a reference does not search the whole heap. Locality, indirection, optimization, and collection work determine practical performance.
+
+Sharing the heap also does not make object access automatically thread-safe. Two threads can hold references in their separate frames to the same mutable object, so concurrent updates may still require synchronization.
+
+### 8. Stack Overflow vs Heap Exhaustion
+
+Unbounded recursion keeps adding active frames because no invocation returns:
+
+```java
+static void recurse() {
+    recurse();
+}
+```
+
+This typically ends with `StackOverflowError` when the permitted stack depth is exceeded. Very deep finite recursion can do the same; an infinite loop without recursive calls does not inherently grow the call stack.
+
+Heap exhaustion can occur when too many objects remain reachable:
+
+```java
+// Illustrative failure pattern; requires java.util.List and ArrayList.
+List<byte[]> retained = new ArrayList<>();
+while (true) {
+    retained.add(new byte[1_000_000]);
+}
+```
+
+The collection retains every array, preventing their reclamation. Eventually another allocation can fail with `OutOfMemoryError`. These are failure demonstrations, not examples to execute as part of normal practice. Also, OutOfMemoryError can indicate resource shortages other than Java heap exhaustion.
+
+### 9. Where Do Primitives and References Live?
+
+```java
+class Example {
+    int age = 25;
+    int[] scores = new int[3];
+
+    void calculate() {
+        int count = 5;
+        int[] localScores = new int[2];
+    }
+}
+```
+
+| Value | Conceptual location | Reason |
+|---|---|---|
+| Local `count` | Method frame | It belongs to this invocation |
+| Local reference `localScores` | Method frame | It is a local variable |
+| Array referenced by `localScores` | Heap | Arrays are objects |
+| Instance field `age` | Inside the `Example` object | It belongs to the instance |
+| Instance reference `scores` | Inside the `Example` object | It is an instance field |
+| Array referenced by `scores` | Heap, as a separate object | A reference field does not embed the array itself |
+
+Therefore, "primitives live on the stack" is incomplete: primitive fields and primitive array elements are part of heap objects. A reference can also be stored either in a method frame or as a field of another object.
+
+### 10. Logical Model vs Physical Implementation
+
+These diagrams explain program behavior, not a mandatory physical layout. Optimized execution can keep values in registers or eliminate an allocation through escape analysis and scalar replacement when observable behavior stays the same. An eliminated object need not exist as a complete object on either stack or heap.
+
+Virtual threads make this distinction especially visible: OpenJDK stores their suspended stack state in garbage-collected heap objects called stack chunks. Each virtual thread still has its own logical call stack, even though its backing storage differs from a conventional platform thread's stack. See [JEP 444: memory use and garbage collection](https://openjdk.org/jeps/444#Memory-use-and-interaction-with-garbage-collection).
+
+### Interview Answer to Remember
+
+The stack manages active method invocations in LIFO order, with local-variable slots and an operand stack in each frame. The heap manages objects and arrays with independent lifetimes, reclaiming unreachable objects through garbage collection. References connect the two, and implementation optimizations can change physical storage without changing that logical behavior.

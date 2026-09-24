@@ -45,7 +45,7 @@ Exception is an event that disrupts the normal flow of the program. It is an obj
 A generic class declaration looks like a non-generic class declaration, except that the class name is followed by a type parameter section.
 
 ### [Java Features and Program Execution](java_how_it_works.md)
-Java is a **programming language** and a **platform**.
+Java features, JVM architecture, and [stack vs heap internals](java_how_it_works.md#stack-vs-heap-data-structures-and-internal-working), including method frames, allocation, references, garbage collection, and interview examples.
 
 ### [Important Methods in Java](java_important_methods.md)
 Important Methods of various Classes in Java with description.
